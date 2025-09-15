@@ -1,23 +1,22 @@
 package org.example.com.github.kodakodapa.kingfractal
 
+import org.example.com.github.kodakodapa.kingfractal.utils.OpenCLData
 import org.jocl.*
-import java.nio.FloatBuffer
-import kotlin.math.*
 
-class OpenCLRenderer {
+class OpenCLRenderer<T : OpenCLData>(
+    private val kernelSource: String,
+    private val dataFactory: (ByteArray) -> T
+)  {
 
     private var context: cl_context? = null
     private var commandQueue: cl_command_queue? = null
     private var program: cl_program? = null
     private var kernel: cl_kernel? = null
     private var device: cl_device_id? = null
-    private var kernelSource: String? = null
-
     var isInitialized = false
 
 
-    private fun initializeOpenCL() {
-        requireNotNull(kernelSource) { "Kernel source cannot be null when initializing" }
+    fun initialize() {
 
         // Enable exceptions
         CL.setExceptionsEnabled(true)
@@ -86,6 +85,23 @@ class OpenCLRenderer {
         println("OpenCL initialized successfully on device: ${getDeviceName()}")
     }
 
+    fun execute(data: T, vararg params: Any): T {
+        // Convert data to buffer
+        val inputBuffer = data.toByteArray()
+
+        // Mock kernel execution with parameters
+        println("Executing kernel with buffer size: ${inputBuffer.size}")
+        params.forEach { param ->
+            println("Kernel parameter: $param")
+        }
+//
+//        // Simulate fractal computation (in reality, this runs on GPU)
+//        val outputBuffer = null
+
+        // Convert back to data type
+        return dataFactory(inputBuffer)
+    }
+
     private fun getDeviceName(): String {
         val size = LongArray(1)
         CL.clGetDeviceInfo(device, CL.CL_DEVICE_NAME, 0, null, size)
@@ -95,4 +111,16 @@ class OpenCLRenderer {
 
         return String(buffer).trim { it <= ' ' }
     }
+
+    fun cleanup() {
+        // Release OpenCL resources
+        kernel = null
+        program = null
+        commandQueue = null
+        context = null
+        isInitialized = false
+    }
 }
+
+
+
