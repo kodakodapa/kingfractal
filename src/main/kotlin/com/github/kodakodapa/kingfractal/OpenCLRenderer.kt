@@ -4,6 +4,7 @@ import org.example.com.github.kodakodapa.kingfractal.utils.FractalParams
 import org.example.com.github.kodakodapa.kingfractal.utils.JuliaParams
 import org.example.com.github.kodakodapa.kingfractal.utils.MandelbrotParams
 import org.example.com.github.kodakodapa.kingfractal.utils.OpenCLData
+import org.example.com.github.kodakodapa.kingfractal.utils.RGB_CHANNELS
 import org.jocl.*
 
 class OpenCLRenderer<T : OpenCLData>(
@@ -96,7 +97,7 @@ class OpenCLRenderer<T : OpenCLData>(
         requireNotNull(kernel) { "Kernel not initialized" }
 
         val inputBuffer = data.toByteArray()
-        val outputSize = width * height * 3L // RGB
+        val outputSize = width * height * RGB_CHANNELS.toLong() // RGB
 
         // Create OpenCL memory objects
         val inputMem = CL.clCreateBuffer(context, CL.CL_MEM_READ_ONLY or CL.CL_MEM_COPY_HOST_PTR,

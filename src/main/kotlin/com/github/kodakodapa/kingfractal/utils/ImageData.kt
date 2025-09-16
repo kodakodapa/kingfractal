@@ -4,6 +4,8 @@ import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
 
+const val RGB_CHANNELS = 3
+
 
 // Image data implementation
 data class ImageData(
@@ -19,7 +21,7 @@ data class ImageData(
         val image = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
         for (y in 0 until height) {
             for (x in 0 until width) {
-                val index = (y * width + x) * 3
+                val index = (y * width + x) * RGB_CHANNELS
                 val r = (pixels[index].toInt() and 0xFF)
                 val g = (pixels[index + 1].toInt() and 0xFF)
                 val b = (pixels[index + 2].toInt() and 0xFF)
@@ -42,7 +44,7 @@ data class ImageData(
 
     companion object {
         fun fromDimensions(width: Int, height: Int): ImageData {
-            val pixels = ByteArray(width * height * 3) // RGB
+            val pixels = ByteArray(width * height * RGB_CHANNELS) // RGB
             return ImageData(width, height, pixels)
         }
 
