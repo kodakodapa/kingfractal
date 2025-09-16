@@ -163,12 +163,23 @@ class OpenCLRenderer<T : OpenCLData>(
     }
 
     fun cleanup() {
-        // Release OpenCL resources
+        try {
+            kernel?.let { CL.clReleaseKernel(it) }           // Actually releases kernel
+            program?.let { CL.clReleaseProgram(it) }         // Actually releases program
+            commandQueue?.let { CL.clReleaseCommandQueue(it) } // Actually releases queue
+            context?.let { CL.clReleaseContext(it) }         // Actually releases context
+        } catch (e: Exception) {
+            println("Error during cleanup: ${e.message}")
+        }
+
+        // Then set references to null
         kernel = null
         program = null
         commandQueue = null
         context = null
+        device = null
         isInitialized = false
+        println("OpenCL resources cleaned up")
     }
 }
 
