@@ -1,3 +1,5 @@
+package com.github.kodakodapa.kingfractal
+
 import org.example.com.github.kodakodapa.kingfractal.OpenCLRenderer
 import org.example.com.github.kodakodapa.kingfractal.utils.ImageData
 import org.example.com.github.kodakodapa.kingfractal.utils.MandelbrotParams
