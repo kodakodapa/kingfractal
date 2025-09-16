@@ -11,12 +11,14 @@ fun main() {
     // Create Mandelbrot renderer
     val mandelbrotRenderer = OpenCLRenderer<ImageData>(
         kernelSource = FractalKernels.mandelbrotKernel,
+        kernelName = "mandelbrot",
         dataFactory = { bytes -> ImageData.fromByteArray(width, height, bytes) }
     )
 
     // Create Julia renderer
     val juliaRenderer = OpenCLRenderer<ImageData>(
         kernelSource = FractalKernels.juliaKernel,
+        kernelName = "julia",
         dataFactory = { bytes -> ImageData.fromByteArray(width, height, bytes) }
     )
 
@@ -37,14 +39,11 @@ fun main() {
             maxIterations = 100
         )
 
-        val mandelBrotImage = ImageData.fromDimensions(width, height)
+        val mandelbrotImage = ImageData.fromDimensions(width, height)
         val mandelbrotResult = mandelbrotRenderer.execute(
-            mandelBrotImage,
+            mandelbrotImage,
             width, height,
-            mandelbrotParams.zoom,
-            mandelbrotParams.centerX,
-            mandelbrotParams.centerY,
-            mandelbrotParams.maxIterations
+            mandelbrotParams
         )
 
         // Render Julia set
@@ -62,16 +61,11 @@ fun main() {
         val juliaResult = juliaRenderer.execute(
             juliaImage,
             width, height,
-            juliaParams.zoom,
-            juliaParams.centerX,
-            juliaParams.centerY,
-            juliaParams.juliaReal,
-            juliaParams.juliaImag,
-            juliaParams.maxIterations
+            juliaParams
         )
 
-        mandelbrotResult.saveAsPng("mandelbrot_${System.currentTimeMillis()}")
-        juliaResult.saveAsPng("julia_${System.currentTimeMillis()}")
+        mandelbrotResult.saveAsPng("mandelbrot_${System.currentTimeMillis()}.png")
+        juliaResult.saveAsPng("julia_${System.currentTimeMillis()}.png")
 
     } finally {
         mandelbrotRenderer.cleanup()

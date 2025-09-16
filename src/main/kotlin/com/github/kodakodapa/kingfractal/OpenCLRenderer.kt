@@ -1,10 +1,14 @@
 package org.example.com.github.kodakodapa.kingfractal
 
+import org.example.com.github.kodakodapa.kingfractal.utils.FractalParams
+import org.example.com.github.kodakodapa.kingfractal.utils.JuliaParams
+import org.example.com.github.kodakodapa.kingfractal.utils.MandelbrotParams
 import org.example.com.github.kodakodapa.kingfractal.utils.OpenCLData
 import org.jocl.*
 
 class OpenCLRenderer<T : OpenCLData>(
     private val kernelSource: String,
+    private val kernelName: String,
     private val dataFactory: (ByteArray) -> T
 )  {
 
@@ -79,28 +83,74 @@ class OpenCLRenderer<T : OpenCLData>(
         }
 
         // Create kernel
-        kernel = CL.clCreateKernel(program, "king-fractal", null)
+        kernel = CL.clCreateKernel(program, kernelName, null)
 
         isInitialized = true
         println("OpenCL initialized successfully on device: ${getDeviceName()}")
     }
 
-    fun execute(data: T, vararg params: Any): T {
-        // Convert data to buffer
+    fun execute(data: T, width: Int, height: Int, params: FractalParams): T {
+        require(isInitialized) {"Must be initialized"}
+        requireNotNull(context) { "OpenCL context not initialized" }
+        requireNotNull(commandQueue) { "Command queue not initialized" }
+        requireNotNull(kernel) { "Kernel not initialized" }
+
         val inputBuffer = data.toByteArray()
+        val outputSize = width * height * 3L // RGB
 
-        // Mock kernel execution with parameters
-        println("Executing kernel with buffer size: ${inputBuffer.size}")
-        params.forEach { param ->
-            println("Kernel parameter: $param")
+        // Create OpenCL memory objects
+        val inputMem = CL.clCreateBuffer(context, CL.CL_MEM_READ_ONLY or CL.CL_MEM_COPY_HOST_PTR,
+            inputBuffer.size.toLong(), Pointer.to(inputBuffer), null)
+
+        val outputMem = CL.clCreateBuffer(context, CL.CL_MEM_WRITE_ONLY, outputSize, null, null)
+
+        try {
+            // Set kernel arguments
+            var argIndex = 0
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_mem.toLong(), Pointer.to(outputMem))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_int.toLong(), Pointer.to(intArrayOf(width)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_int.toLong(), Pointer.to(intArrayOf(height)))
+
+            // Set fractal-specific parameters
+            when (params) {
+                is MandelbrotParams -> {
+                    CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.zoom)))
+                    CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.centerX)))
+                    CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.centerY)))
+                    CL.clSetKernelArg(kernel, argIndex, Sizeof.cl_int.toLong(), Pointer.to(intArrayOf(params.maxIterations)))
+                }
+                is JuliaParams -> {
+                    CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.zoom)))
+                    CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.centerX)))
+                    CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.centerY)))
+                    CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.juliaReal)))
+                    CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.juliaImag)))
+                    CL.clSetKernelArg(kernel, argIndex, Sizeof.cl_int.toLong(), Pointer.to(intArrayOf(params.maxIterations)))
+                }
+            }
+
+            // Execute kernel
+            val globalWorkSize = longArrayOf(width.toLong(), height.toLong())
+            CL.clEnqueueNDRangeKernel(commandQueue, kernel, 2, null, globalWorkSize, null, 0, null, null)
+
+            // Read result
+            val outputArray = ByteArray(outputSize.toInt())
+            CL.clEnqueueReadBuffer(commandQueue, outputMem, true, 0, outputSize,
+                Pointer.to(outputArray), 0, null, null)
+
+            // Wait for completion
+            CL.clFinish(commandQueue)
+
+            return dataFactory(outputArray)
+
+        } finally {
+            // Clean up memory objects
+            CL.clReleaseMemObject(inputMem)
+            CL.clReleaseMemObject(outputMem)
         }
-//
-//        // Simulate fractal computation (in reality, this runs on GPU)
-//        val outputBuffer = null
-
-        // Convert back to data type
-        return dataFactory(inputBuffer)
     }
+
+
 
     private fun getDeviceName(): String {
         val size = LongArray(1)

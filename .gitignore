@@ -5,7 +5,10 @@ build/
 !**/src/test/**/build/
 gradle/**
 
+
+### Misc ###
 ideas.txt
+*.png
 
 ### IntelliJ IDEA ###
 .idea/modules.xml
