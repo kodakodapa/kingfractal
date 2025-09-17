@@ -1,6 +1,6 @@
 package com.github.kodakodapa.kingfractal.utils
 
-import org.example.com.github.kodakodapa.kingfractal.utils.ImageData
+import com.github.kodakodapa.kingfractal.outputs.ImageData
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.*
 import java.awt.image.BufferedImage
@@ -58,7 +58,7 @@ class ImageDataTest {
         val height = 15
         val imageData = ImageData.fromDimensions(width, height)
 
-        val bufferedImage = imageData.toBufferedImage()
+        val bufferedImage = imageData.toBufferedImage(null)
 
         assertEquals(width, bufferedImage.width)
         assertEquals(height, bufferedImage.height)
@@ -75,7 +75,7 @@ class ImageDataTest {
         )
         val imageData = ImageData(2, 2, pixels)
 
-        val bufferedImage = imageData.toBufferedImage()
+        val bufferedImage = imageData.toBufferedImage(null)
 
         // Check red pixel (0,0)
         val redPixel = bufferedImage.getRGB(0, 0)

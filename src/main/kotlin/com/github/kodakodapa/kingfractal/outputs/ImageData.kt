@@ -1,5 +1,8 @@
-package org.example.com.github.kodakodapa.kingfractal.utils
+package com.github.kodakodapa.kingfractal.outputs
 
+import com.github.kodakodapa.kingfractal.colors.ARGBFirePalette
+import com.github.kodakodapa.kingfractal.colors.ARGBPalette
+import com.github.kodakodapa.kingfractal.utils.OpenCLData
 import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
@@ -14,17 +17,20 @@ data class ImageData(
     val pixels: ByteArray
 ) : OpenCLData {
 
+
     override fun toByteArray(): ByteArray = pixels
     override fun getBufferSize(): Long = pixels.size.toLong()
 
-    fun toBufferedImage(): BufferedImage {
+    fun toBufferedImage(palette: ARGBPalette?): BufferedImage {
         val image = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
+        val actualPalette = palette ?: ARGBFirePalette(enableSmoke = true)
+        val colorMatrix = actualPalette.generateColorMatrix(256).toMatrix()
         for (y in 0 until height) {
             for (x in 0 until width) {
                 val index = (y * width + x) * RGB_CHANNELS
-                val r = (pixels[index].toInt() and 0xFF)
-                val g = (pixels[index + 1].toInt() and 0xFF)
-                val b = (pixels[index + 2].toInt() and 0xFF)
+                val r = colorMatrix[(pixels[index].toInt() and 0xFF -1 )][0]
+                val g = colorMatrix[(pixels[index + 1].toInt() and 0xFF -1)][1]
+                val b = colorMatrix[(pixels[index + 2].toInt() and 0xFF-1)][2]
                 val rgb = (r shl 16) or (g shl 8) or b
                 image.setRGB(x, y, rgb)
             }
@@ -32,9 +38,9 @@ data class ImageData(
         return image
     }
 
-    fun saveAsPng(filename: String) {
+    fun saveAsPng(filename: String, palette: ARGBPalette?) {
         try {
-            val bufferedImage = toBufferedImage()
+            val bufferedImage = toBufferedImage(palette)
             ImageIO.write(bufferedImage, "PNG", File(filename))
             println("Saved PNG: $filename (${File(filename).length()} bytes)")
         } catch (e: Exception) {

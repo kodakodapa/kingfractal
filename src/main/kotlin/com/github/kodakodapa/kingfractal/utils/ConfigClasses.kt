@@ -1,4 +1,4 @@
-package org.example.com.github.kodakodapa.kingfractal.utils
+package com.github.kodakodapa.kingfractal.utils
 
 sealed class FractalParams
 
