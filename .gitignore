@@ -45,6 +45,6 @@ bin/
 ### Mac OS ###
 .DS_Store
 
-### Generated Output Files ###
+### Generated ARGB Output Files ###
 *.ppm
 *.txt

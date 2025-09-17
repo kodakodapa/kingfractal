@@ -17,7 +17,7 @@ dependencies {
 }
 
 application {
-    mainClass.set("com.github.kodakodapa.kingfractal.MainKt")
+    mainClass.set("org.example.com.github.kodakodapa.kingfractal.MainKt")
 }
 
 
