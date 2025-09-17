@@ -1,5 +1,6 @@
 plugins {
     kotlin("jvm") version "2.2.0"
+    application
 }
 
 group = "com.github.kodakodapa"
@@ -15,10 +16,14 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
 }
 
+application {
+    mainClass.set("org.example.com.github.kodakodapa.kingfractal.MainKt")
+}
+
 
 tasks.test {
     useJUnitPlatform()
 }
 kotlin {
-    jvmToolchain(24)
+    jvmToolchain(17)
 }
