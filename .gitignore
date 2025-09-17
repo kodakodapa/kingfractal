@@ -3,13 +3,24 @@ build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
+gradle/**
+
+
+### Misc ###
+ideas.txt
+*.png
 
 ### IntelliJ IDEA ###
 .idea/modules.xml
 .idea/jarRepositories.xml
 .idea/compiler.xml
 .idea/libraries/
-.idea/.*
+.idea/gradle.xml
+.idea/kotlinc.xml
+.idea/misc.xml
+.idea/workspace.xml
+.idea/vcs.xml
+
 *.iws
 *.iml
 *.ipr

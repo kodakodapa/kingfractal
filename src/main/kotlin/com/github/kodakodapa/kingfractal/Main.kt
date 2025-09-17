@@ -1,16 +1,74 @@
 package org.example.com.github.kodakodapa.kingfractal
+import org.example.com.github.kodakodapa.kingfractal.utils.FractalKernels
+import org.example.com.github.kodakodapa.kingfractal.utils.ImageData
+import org.example.com.github.kodakodapa.kingfractal.utils.JuliaParams
+import org.example.com.github.kodakodapa.kingfractal.utils.MandelbrotParams
 
-//TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
-// click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
 fun main() {
-    val name = "Kotlin"
-    //TIP Press <shortcut actionId="ShowIntentionActions"/> with your caret at the highlighted text
-    // to see how IntelliJ IDEA suggests fixing it.
-    println("Hello, " + name + "!")
+    val width = 1920
+    val height = 1080
 
-    for (i in 1..5) {
-        //TIP Press <shortcut actionId="Debug"/> to start debugging your code. We have set one <icon src="AllIcons.Debugger.Db_set_breakpoint"/> breakpoint
-        // for you, but you can always add more by pressing <shortcut actionId="ToggleLineBreakpoint"/>.
-        println("i = $i")
+    // Create Mandelbrot renderer
+    val mandelbrotRenderer = OpenCLRenderer<ImageData>(
+        kernelSource = FractalKernels.mandelbrotKernel,
+        kernelName = "mandelbrot",
+        dataFactory = { bytes -> ImageData.fromByteArray(width, height, bytes) }
+    )
+
+    // Create Julia renderer
+    val juliaRenderer = OpenCLRenderer<ImageData>(
+        kernelSource = FractalKernels.juliaKernel,
+        kernelName = "julia",
+        dataFactory = { bytes -> ImageData.fromByteArray(width, height, bytes) }
+    )
+
+    try {
+        // Initialize both renderers
+        println("=== Initializing Mandelbrot Renderer ===")
+        mandelbrotRenderer.initialize()
+
+        println("\n=== Initializing Julia Renderer ===")
+        juliaRenderer.initialize()
+
+        // Render Mandelbrot set
+        println("\n=== Rendering Mandelbrot Set ===")
+        val mandelbrotParams = MandelbrotParams(
+            zoom = 1.0f,
+            centerX = -0.5f,
+            centerY = 0.0f,
+            maxIterations = 100
+        )
+
+        val mandelbrotImage = ImageData.fromDimensions(width, height)
+        val mandelbrotResult = mandelbrotRenderer.execute(
+            mandelbrotImage,
+            width, height,
+            mandelbrotParams
+        )
+
+        // Render Julia set
+        println("\n=== Rendering Julia Set ===")
+        val juliaParams = JuliaParams(
+            zoom = 1.0f,
+            centerX = 0.0f,
+            centerY = 0.0f,
+            juliaReal = -0.7f,
+            juliaImag = 0.27015f,
+            maxIterations = 100
+        )
+
+        val juliaImage = ImageData.fromDimensions(width, height)
+        val juliaResult = juliaRenderer.execute(
+            juliaImage,
+            width, height,
+            juliaParams
+        )
+
+        mandelbrotResult.saveAsPng("mandelbrot_${System.currentTimeMillis()}.png")
+        juliaResult.saveAsPng("julia_${System.currentTimeMillis()}.png")
+
+    } finally {
+        mandelbrotRenderer.cleanup()
+        juliaRenderer.cleanup()
     }
 }
