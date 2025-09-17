@@ -1,8 +1,8 @@
-package org.example.com.github.kodakodapa.kingfractal
-import org.example.com.github.kodakodapa.kingfractal.utils.FractalKernels
-import org.example.com.github.kodakodapa.kingfractal.utils.ImageData
-import org.example.com.github.kodakodapa.kingfractal.utils.JuliaParams
-import org.example.com.github.kodakodapa.kingfractal.utils.MandelbrotParams
+package com.github.kodakodapa.kingfractal
+import com.github.kodakodapa.kingfractal.utils.FractalKernels
+import com.github.kodakodapa.kingfractal.outputs.ImageData
+import com.github.kodakodapa.kingfractal.utils.JuliaParams
+import com.github.kodakodapa.kingfractal.utils.MandelbrotParams
 
 fun main() {
     val width = 1920
@@ -64,8 +64,8 @@ fun main() {
             juliaParams
         )
 
-        mandelbrotResult.saveAsPng("mandelbrot_${System.currentTimeMillis()}.png")
-        juliaResult.saveAsPng("julia_${System.currentTimeMillis()}.png")
+        mandelbrotResult.saveAsPng("mandelbrot_${System.currentTimeMillis()}.png", null)
+        juliaResult.saveAsPng("julia_${System.currentTimeMillis()}.png", null)
 
     } finally {
         mandelbrotRenderer.cleanup()
