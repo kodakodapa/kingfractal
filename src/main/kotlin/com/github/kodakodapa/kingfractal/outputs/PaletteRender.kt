@@ -2,7 +2,6 @@ package com.github.kodakodapa.kingfractal.outputs
 
 import com.github.kodakodapa.kingfractal.colors.ARGBPalette
 import com.github.kodakodapa.kingfractal.colors.ARGBPaletteRegistry
-import com.github.kodakodapa.kingfractal.colors.ARGBRainbowPalette
 import java.awt.Color
 import java.awt.Graphics2D
 import java.awt.image.BufferedImage
