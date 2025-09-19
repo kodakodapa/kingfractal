@@ -1,12 +1,11 @@
 package com.github.kodakodapa.kingfractal
 
 
-import org.example.com.github.kodakodapa.kingfractal.OpenCLRenderer
-import org.example.com.github.kodakodapa.kingfractal.utils.FractalKernels
-import org.example.com.github.kodakodapa.kingfractal.utils.ImageData
-import org.example.com.github.kodakodapa.kingfractal.utils.JuliaParams
-import org.example.com.github.kodakodapa.kingfractal.utils.MandelbrotParams
-import org.example.com.github.kodakodapa.kingfractal.utils.RGB_CHANNELS
+import com.github.kodakodapa.kingfractal.utils.FractalKernels
+import com.github.kodakodapa.kingfractal.outputs.ImageData
+import com.github.kodakodapa.kingfractal.utils.JuliaParams
+import com.github.kodakodapa.kingfractal.utils.MandelbrotParams
+import com.github.kodakodapa.kingfractal.outputs.RGB_CHANNELS
 import org.junit.jupiter.api.Assertions.assertTrue
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -61,7 +60,7 @@ class IntegrationTest {
         }
 
         val imageData = ImageData(width, height, originalPixels)
-        val bufferedImage = imageData.toBufferedImage()
+        val bufferedImage = imageData.toBufferedImage(null)
 
         assertEquals(width, bufferedImage.width)
         assertEquals(height, bufferedImage.height)

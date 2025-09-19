@@ -1,7 +1,7 @@
 package com.github.kodakodapa.kingfractal.utils
 
-import org.example.com.github.kodakodapa.kingfractal.utils.JuliaParams
-import org.example.com.github.kodakodapa.kingfractal.utils.MandelbrotParams
+import com.github.kodakodapa.kingfractal.utils.JuliaParams
+import com.github.kodakodapa.kingfractal.utils.MandelbrotParams
 import org.junit.jupiter.api.Assertions.assertEquals
 import kotlin.test.Test
 

@@ -1,10 +1,10 @@
-package org.example.com.github.kodakodapa.kingfractal
+package com.github.kodakodapa.kingfractal
 
-import org.example.com.github.kodakodapa.kingfractal.utils.FractalParams
-import org.example.com.github.kodakodapa.kingfractal.utils.JuliaParams
-import org.example.com.github.kodakodapa.kingfractal.utils.MandelbrotParams
-import org.example.com.github.kodakodapa.kingfractal.utils.OpenCLData
-import org.example.com.github.kodakodapa.kingfractal.utils.RGB_CHANNELS
+import com.github.kodakodapa.kingfractal.utils.FractalParams
+import com.github.kodakodapa.kingfractal.utils.JuliaParams
+import com.github.kodakodapa.kingfractal.utils.MandelbrotParams
+import com.github.kodakodapa.kingfractal.utils.OpenCLData
+import com.github.kodakodapa.kingfractal.outputs.RGB_CHANNELS
 import org.jocl.*
 
 class OpenCLRenderer<T : OpenCLData>(
