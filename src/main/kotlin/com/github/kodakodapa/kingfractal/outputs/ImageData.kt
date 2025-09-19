@@ -2,6 +2,7 @@ package com.github.kodakodapa.kingfractal.outputs
 
 import com.github.kodakodapa.kingfractal.colors.ARGBFirePalette
 import com.github.kodakodapa.kingfractal.colors.ARGBPalette
+import com.github.kodakodapa.kingfractal.colors.ARGBRainbowPalette
 import com.github.kodakodapa.kingfractal.utils.OpenCLData
 import java.awt.image.BufferedImage
 import java.io.File
@@ -23,14 +24,14 @@ data class ImageData(
 
     fun toBufferedImage(palette: ARGBPalette?): BufferedImage {
         val image = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
-        val actualPalette = palette ?: ARGBFirePalette(enableSmoke = true)
+        val actualPalette = palette ?: ARGBRainbowPalette()
         val colorMatrix = actualPalette.generateColorMatrix(256).toMatrix()
         for (y in 0 until height) {
             for (x in 0 until width) {
                 val index = (y * width + x) * RGB_CHANNELS
-                val r = colorMatrix[(pixels[index].toInt() and 0xFF -1 )][0]
-                val g = colorMatrix[(pixels[index + 1].toInt() and 0xFF -1)][1]
-                val b = colorMatrix[(pixels[index + 2].toInt() and 0xFF-1)][2]
+                val r = colorMatrix[(pixels[index].toInt() and 0xFF)][0]
+                val g = colorMatrix[(pixels[index + 1].toInt() and 0xFF)][1]
+                val b = colorMatrix[(pixels[index + 2].toInt() and 0xFF)][2]
                 val rgb = (r shl 16) or (g shl 8) or b
                 image.setRGB(x, y, rgb)
             }

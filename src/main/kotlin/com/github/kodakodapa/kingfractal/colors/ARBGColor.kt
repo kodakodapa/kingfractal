@@ -3,7 +3,7 @@ package github.kodakodapa.kingfractal.colors
 
 /**
  * Represents an ARGB color with full 255-level precision for each channel
- * Supports the [255][4] vector format requested for full ARGB support
+ * Supports the [256][4] vector format requested for full ARGB support
  */
 data class ARGBColor(
     val alpha: Int = 255,
@@ -194,17 +194,17 @@ object ARGBInterpolation {
 }
 
 /**
- * Represents a full [255][4] color matrix for advanced palette operations
- * This provides the requested [255][4] size vectors functionality
+ * Represents a full [256][4] color matrix for advanced palette operations
+ * This provides the requested [256][4] size vectors functionality
  */
 class ARGBColorMatrix(val size: Int = 255) {
-    private val matrix = Array(size) { ARGBColor.BLACK.toVector() }
+    private val matrix = Array(size + 1) { ARGBColor.BLACK.toVector() }
 
     /**
      * Set color at index using ARGB color
      */
     operator fun set(index: Int, color: ARGBColor) {
-        require(index in 0 until size) { "Index $index out of bounds [0, $size)" }
+        require(index in 0 .. size) { "Index $index out of bounds [0, $size)" }
         matrix[index] = color.toVector()
     }
 
@@ -212,7 +212,7 @@ class ARGBColorMatrix(val size: Int = 255) {
      * Get color at index as ARGB color
      */
     operator fun get(index: Int): ARGBColor {
-        require(index in 0 until size) { "Index $index out of bounds [0, $size)" }
+        require(index in 0 .. size) { "Index $index out of bounds [0, $size)" }
         return ARGBColor.fromVector(matrix[index])
     }
 
@@ -220,7 +220,7 @@ class ARGBColorMatrix(val size: Int = 255) {
      * Get raw vector at index [A, R, G, B]
      */
     fun getVector(index: Int): IntArray {
-        require(index in 0 until size) { "Index $index out of bounds [0, $size)" }
+        require(index in 0 .. size) { "Index $index out of bounds [0, $size)" }
         return matrix[index].copyOf()
     }
 
@@ -228,13 +228,13 @@ class ARGBColorMatrix(val size: Int = 255) {
      * Set vector at index [A, R, G, B]
      */
     fun setVector(index: Int, vector: IntArray) {
-        require(index in 0 until size) { "Index $index out of bounds [0, $size)" }
+        require(index in 0 .. size) { "Index $index out of bounds [0, $size)" }
         require(vector.size == 4) { "Vector must have 4 components" }
         matrix[index] = vector.copyOf()
     }
 
     /**
-     * Get the entire matrix as [255][4] array
+     * Get the entire matrix as [256][4] array
      */
     fun toMatrix(): Array<IntArray> = matrix.map { it.copyOf() }.toTypedArray()
 
@@ -242,7 +242,7 @@ class ARGBColorMatrix(val size: Int = 255) {
      * Fill the matrix with a gradient between two colors
      */
     fun fillGradient(startColor: ARGBColor, endColor: ARGBColor) {
-        for (i in 0 until size) {
+        for (i in 0 .. size) {
             val t = i.toFloat() / (size - 1).toFloat()
             this[i] = ARGBInterpolation.lerp(startColor, endColor, t)
         }
@@ -252,7 +252,7 @@ class ARGBColorMatrix(val size: Int = 255) {
      * Fill the matrix with HSV-based gradient for smoother color transitions
      */
     fun fillHSVGradient(startColor: ARGBColor, endColor: ARGBColor) {
-        for (i in 0 until size) {
+        for (i in 0 .. size) {
             val t = i.toFloat() / (size - 1).toFloat()
             this[i] = ARGBInterpolation.lerpHSV(startColor, endColor, t)
         }
