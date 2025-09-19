@@ -7,7 +7,7 @@ import github.kodakodapa.kingfractal.colors.ARGBInterpolation
 
 /**
  * Interface for ARGB-based color palettes with full alpha support
- * Supports varying palettes with complete [255][4] ARGB vectors
+ * Supports varying palettes with complete [256][4] ARGB vectors
  */
 interface ARGBPalette {
     /**
@@ -35,12 +35,12 @@ interface ARGBPalette {
     val supportsTransparency: Boolean get() = false
 
     /**
-     * Generate a full [255][4] color matrix for this palette
-     * This provides the requested [255][4] size vectors functionality
+     * Generate a full [256][4] color matrix for this palette
+     * This provides the requested [256][4] size vectors functionality
      */
     fun generateColorMatrix(maxIterations: Int = 255): ARGBColorMatrix {
         val matrix = ARGBColorMatrix(255)
-        for (i in 0 until 255) {
+        for (i in 0 .. 255) {
             matrix[i] = getColor(i, maxIterations)
         }
         return matrix
@@ -271,7 +271,7 @@ class ARGBLayeredPalette(
 }
 
 /**
- * Registry for ARGB palettes with support for transparency and [255][4] vectors
+ * Registry for ARGB palettes with support for transparency and [256][4] vectors
  */
 object ARGBPaletteRegistry {
     private val palettes = mutableMapOf<String, ARGBPalette>()
@@ -322,7 +322,7 @@ object ARGBPaletteRegistry {
         palettes.values.filter { !it.supportsTransparency }
 
     /**
-     * Generate a full [255][4] matrix for all palettes
+     * Generate a full [256][4] matrix for all palettes
      * Returns a map of palette names to their color matrices
      */
     fun generateAllColorMatrices(maxIterations: Int = 255): Map<String, ARGBColorMatrix> {
