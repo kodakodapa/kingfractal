@@ -1,9 +1,8 @@
 package com.github.kodakodapa.kingfractal.colors
 
-import github.kodakodapa.kingfractal.colors.ARGBColorMatrix
-
-import github.kodakodapa.kingfractal.colors.ARGBColor
-import github.kodakodapa.kingfractal.colors.ARGBInterpolation
+import com.github.kodakodapa.kingfractal.colors.ARGBColor
+import com.github.kodakodapa.kingfractal.colors.ARGBColorMatrix
+import com.github.kodakodapa.kingfractal.colors.ARGBInterpolation
 
 /**
  * Interface for ARGB-based color palettes with full alpha support
@@ -39,10 +38,18 @@ interface ARGBPalette {
      * This provides the requested [256][4] size vectors functionality
      */
     fun generateColorMatrix(maxIterations: Int = 255): ARGBColorMatrix {
+        val validMaxIterations = maxIterations.coerceAtLeast(1)
         val matrix = ARGBColorMatrix(255)
-        for (i in 0 .. 255) {
-            matrix[i] = getColor(i, maxIterations)
+
+        try {
+            for (i in 0..255) {
+                matrix[i] = getColor(i, validMaxIterations)
+            }
+        } catch (e: Exception) {
+            // If generation fails, fill with fallback gradient
+            matrix.fillGradient(ARGBColor.BLACK, ARGBColor.WHITE)
         }
+
         return matrix
     }
 }
@@ -61,14 +68,26 @@ class ARGBGradientPalette(
         startColor.alpha < 255 || endColor.alpha < 255
 
     override fun getColor(iterations: Int, maxIterations: Int): ARGBColor {
+        // Handle edge cases
+        if (maxIterations <= 0) return ARGBColor.BLACK
+        if (iterations < 0) return startColor
         if (iterations >= maxIterations) return ARGBColor.BLACK // Points in the set
 
-        val t = iterations.toFloat() / maxIterations
-
-        return if (useHSVInterpolation) {
-            ARGBInterpolation.lerpHSV(startColor, endColor, t)
+        val t = if (maxIterations == 1) {
+            0f // Avoid division by zero when maxIterations is 1
         } else {
-            ARGBInterpolation.lerp(startColor, endColor, t)
+            iterations.toFloat() / maxIterations.toFloat()
+        }
+
+        return try {
+            if (useHSVInterpolation) {
+                ARGBInterpolation.lerpHSV(startColor, endColor, t)
+            } else {
+                ARGBInterpolation.lerp(startColor, endColor, t)
+            }
+        } catch (e: Exception) {
+            // Fallback to start color if interpolation fails
+            startColor
         }
     }
 }
@@ -84,14 +103,30 @@ class ARGBRainbowPalette(
     override val supportsTransparency = enableTransparency
 
     override fun getColor(iterations: Int, maxIterations: Int): ARGBColor {
+        // Handle edge cases
+        if (maxIterations <= 0) return ARGBColor.BLACK
+        if (iterations < 0) return ARGBColor.BLACK
         if (iterations >= maxIterations) return ARGBColor.BLACK
 
-        val hue = (iterations.toFloat() / maxIterations) * 360f
-        val rgb = hsvToRgb(hue, 1f, 1f)
+        val hue = if (maxIterations == 1) {
+            0f // Avoid division by zero
+        } else {
+            (iterations.toFloat() / maxIterations.toFloat()) * 360f
+        }
+
+        val rgb = try {
+            hsvToRgb(hue, 1f, 1f)
+        } catch (e: Exception) {
+            intArrayOf(0, 0, 0) // Fallback to black RGB
+        }
 
         val alpha = if (enableTransparency) {
             // Create transparency effect based on iteration distance
-            val alphaFactor = iterations.toFloat() / maxIterations
+            val alphaFactor = if (maxIterations == 1) {
+                0f
+            } else {
+                iterations.toFloat() / maxIterations.toFloat()
+            }
             (minAlpha + (255 - minAlpha) * alphaFactor).toInt().coerceIn(0, 255)
         } else {
             255
@@ -132,34 +167,46 @@ class ARGBFirePalette(
     override val supportsTransparency = enableSmoke
 
     override fun getColor(iterations: Int, maxIterations: Int): ARGBColor {
+        // Handle edge cases
+        if (maxIterations <= 0) return ARGBColor.BLACK
+        if (iterations < 0) return ARGBColor.BLACK
         if (iterations >= maxIterations) return ARGBColor.BLACK
 
-        val t = iterations.toFloat() / maxIterations
+        val t = if (maxIterations == 1) {
+            0f // Avoid division by zero
+        } else {
+            iterations.toFloat() / maxIterations.toFloat()
+        }
 
-        return when {
-            t < 0.33f -> {
-                // Black to red transition
-                val intensity = (t / 0.33f * 255).toInt().coerceIn(0, 255)
-                val alpha = if (enableSmoke) (intensity * 0.8f).toInt().coerceIn(50, 255) else 255
-                ARGBColor(alpha, intensity, 0, 0)
-            }
-            t < 0.66f -> {
-                // Red to orange transition
-                val intensity = ((t - 0.33f) / 0.33f * 255).toInt().coerceIn(0, 255)
-                val alpha = if (enableSmoke) (200 + intensity * 0.2f).toInt().coerceIn(200, 255) else 255
-                ARGBColor(alpha, 255, intensity, 0)
-            }
-            else -> {
-                // Orange to yellow transition with smoke effect
-                val intensity = ((t - 0.66f) / 0.34f * 255).toInt().coerceIn(0, 255)
-                val alpha = if (enableSmoke) {
-                    // Create smoke effect at high temperatures
-                    (255 - intensity * 0.3f).toInt().coerceIn(180, 255)
-                } else {
-                    255
+        return try {
+            when {
+                t < 0.33f -> {
+                    // Black to red transition
+                    val intensity = if (t == 0f) 0 else ((t / 0.33f) * 255).toInt().coerceIn(0, 255)
+                    val alpha = if (enableSmoke) (intensity * 0.8f).toInt().coerceIn(50, 255) else 255
+                    ARGBColor(alpha, intensity, 0, 0)
                 }
-                ARGBColor(alpha, 255, 255, intensity)
+                t < 0.66f -> {
+                    // Red to orange transition
+                    val intensity = ((t - 0.33f) / 0.33f * 255).toInt().coerceIn(0, 255)
+                    val alpha = if (enableSmoke) (200 + intensity * 0.2f).toInt().coerceIn(200, 255) else 255
+                    ARGBColor(alpha, 255, intensity, 0)
+                }
+                else -> {
+                    // Orange to yellow transition with smoke effect
+                    val intensity = ((t - 0.66f) / 0.34f * 255).toInt().coerceIn(0, 255)
+                    val alpha = if (enableSmoke) {
+                        // Create smoke effect at high temperatures
+                        (255 - intensity * 0.3f).toInt().coerceIn(180, 255)
+                    } else {
+                        255
+                    }
+                    ARGBColor(alpha, 255, 255, intensity)
+                }
             }
+        } catch (e: Exception) {
+            // Fallback to red color for fire palette
+            ARGBColor(255, 255, 0, 0)
         }
     }
 }
@@ -174,21 +221,34 @@ class ARGBCoolBluePalette(
     override val supportsTransparency = enableIceEffect
 
     override fun getColor(iterations: Int, maxIterations: Int): ARGBColor {
+        // Handle edge cases
+        if (maxIterations <= 0) return ARGBColor.BLACK
+        if (iterations < 0) return ARGBColor.BLACK
         if (iterations >= maxIterations) return ARGBColor.BLACK
 
-        val t = iterations.toFloat() / maxIterations
-        val blue = (t * 255).toInt().coerceIn(0, 255)
-        val green = (t * 128).toInt().coerceIn(0, 255)
-
-        val alpha = if (enableIceEffect) {
-            // Create ice-like transparency effect
-            val iceAlpha = (128 + t * 127).toInt().coerceIn(128, 255)
-            iceAlpha
+        val t = if (maxIterations == 1) {
+            0f // Avoid division by zero
         } else {
-            255
+            iterations.toFloat() / maxIterations.toFloat()
         }
 
-        return ARGBColor(alpha, 0, green, blue)
+        return try {
+            val blue = (t * 255).toInt().coerceIn(0, 255)
+            val green = (t * 128).toInt().coerceIn(0, 255)
+
+            val alpha = if (enableIceEffect) {
+                // Create ice-like transparency effect
+                val iceAlpha = (128 + t * 127).toInt().coerceIn(128, 255)
+                iceAlpha
+            } else {
+                255
+            }
+
+            ARGBColor(alpha, 0, green, blue)
+        } catch (e: Exception) {
+            // Fallback to blue color
+            ARGBColor(255, 0, 0, 255)
+        }
     }
 }
 
@@ -202,28 +262,40 @@ class ARGBPlasmaPalette(
     override val supportsTransparency = enableEnergyEffect
 
     override fun getColor(iterations: Int, maxIterations: Int): ARGBColor {
+        // Handle edge cases
+        if (maxIterations <= 0) return ARGBColor.BLACK
+        if (iterations < 0) return ARGBColor.BLACK
         if (iterations >= maxIterations) return ARGBColor.BLACK
 
-        val t = iterations.toFloat() / maxIterations
-
-        // Create plasma-like color cycling
-        val phase1 = kotlin.math.sin(t * kotlin.math.PI * 2).toFloat()
-        val phase2 = kotlin.math.sin(t * kotlin.math.PI * 3 + kotlin.math.PI / 3).toFloat()
-        val phase3 = kotlin.math.sin(t * kotlin.math.PI * 5 + kotlin.math.PI * 2 / 3).toFloat()
-
-        val r = ((phase1 + 1) * 127.5f).toInt().coerceIn(0, 255)
-        val g = ((phase2 + 1) * 127.5f).toInt().coerceIn(0, 255)
-        val b = ((phase3 + 1) * 127.5f).toInt().coerceIn(0, 255)
-
-        val alpha = if (enableEnergyEffect) {
-            // Pulsating energy effect
-            val energyAlpha = ((kotlin.math.sin(t * kotlin.math.PI * 4) + 1) * 100 + 55).toInt().coerceIn(55, 255)
-            energyAlpha
+        val t = if (maxIterations == 1) {
+            0f // Avoid division by zero
         } else {
-            255
+            iterations.toFloat() / maxIterations.toFloat()
         }
 
-        return ARGBColor(alpha, r, g, b)
+        return try {
+            // Create plasma-like color cycling
+            val phase1 = kotlin.math.sin(t * kotlin.math.PI * 2).toFloat()
+            val phase2 = kotlin.math.sin(t * kotlin.math.PI * 3 + kotlin.math.PI / 3).toFloat()
+            val phase3 = kotlin.math.sin(t * kotlin.math.PI * 5 + kotlin.math.PI * 2 / 3).toFloat()
+
+            val r = ((phase1 + 1) * 127.5f).toInt().coerceIn(0, 255)
+            val g = ((phase2 + 1) * 127.5f).toInt().coerceIn(0, 255)
+            val b = ((phase3 + 1) * 127.5f).toInt().coerceIn(0, 255)
+
+            val alpha = if (enableEnergyEffect) {
+                // Pulsating energy effect
+                val energyAlpha = ((kotlin.math.sin(t * kotlin.math.PI * 4) + 1) * 100 + 55).toInt().coerceIn(55, 255)
+                energyAlpha
+            } else {
+                255
+            }
+
+            ARGBColor(alpha, r, g, b)
+        } catch (e: Exception) {
+            // Fallback to magenta for plasma
+            ARGBColor(255, 255, 0, 255)
+        }
     }
 }
 
@@ -237,36 +309,57 @@ class ARGBLayeredPalette(
     override val supportsTransparency = true
 
     override fun getColor(iterations: Int, maxIterations: Int): ARGBColor {
+        // Handle edge cases
+        if (maxIterations <= 0) return ARGBColor.BLACK
+        if (iterations < 0) return ARGBColor.BLACK
         if (iterations >= maxIterations) return ARGBColor.BLACK
+        if (layers.isEmpty()) return ARGBColor.BLACK
 
-        var finalR = 0f
-        var finalG = 0f
-        var finalB = 0f
-        var finalA = 0f
+        return try {
+            var finalR = 0f
+            var finalG = 0f
+            var finalB = 0f
+            var finalA = 0f
 
-        for ((palette, opacity) in layers) {
-            val color = palette.getColor(iterations, maxIterations)
-            val normalizedAlpha = (color.alpha / 255f) * opacity
+            for ((palette, opacity) in layers) {
+                // Null safety and opacity validation
+                if (palette == null || opacity <= 0f) continue
 
-            finalR += color.red * normalizedAlpha
-            finalG += color.green * normalizedAlpha
-            finalB += color.blue * normalizedAlpha
-            finalA += normalizedAlpha
+                val color = try {
+                    palette.getColor(iterations, maxIterations)
+                } catch (e: Exception) {
+                    continue // Skip this layer if it fails
+                }
+
+                val clampedOpacity = opacity.coerceIn(0f, 1f)
+                val normalizedAlpha = (color.alpha / 255f) * clampedOpacity
+
+                finalR += color.red * normalizedAlpha
+                finalG += color.green * normalizedAlpha
+                finalB += color.blue * normalizedAlpha
+                finalA += normalizedAlpha
+            }
+
+            // Normalize by total alpha to prevent oversaturation
+            if (finalA > 0f) {
+                finalR /= finalA
+                finalG /= finalA
+                finalB /= finalA
+            } else {
+                // If no valid layers, return black
+                return ARGBColor.BLACK
+            }
+
+            ARGBColor(
+                (finalA * 255).toInt().coerceIn(0, 255),
+                finalR.toInt().coerceIn(0, 255),
+                finalG.toInt().coerceIn(0, 255),
+                finalB.toInt().coerceIn(0, 255)
+            )
+        } catch (e: Exception) {
+            // Fallback to black if composition fails
+            ARGBColor.BLACK
         }
-
-        // Normalize by total alpha to prevent oversaturation
-        if (finalA > 0) {
-            finalR /= finalA
-            finalG /= finalA
-            finalB /= finalA
-        }
-
-        return ARGBColor(
-            (finalA * 255).toInt().coerceIn(0, 255),
-            finalR.toInt().coerceIn(0, 255),
-            finalG.toInt().coerceIn(0, 255),
-            finalB.toInt().coerceIn(0, 255)
-        )
     }
 }
 
@@ -275,8 +368,15 @@ class ARGBLayeredPalette(
  */
 object ARGBPaletteRegistry {
     private val palettes = mutableMapOf<String, ARGBPalette>()
+    private var initialized = false
 
     init {
+        initializeBuiltInPalettes()
+    }
+
+    private fun initializeBuiltInPalettes() {
+        if (initialized) return
+
         // Register built-in palettes
         register(ARGBRainbowPalette(false))
         register(ARGBRainbowPalette(true))
@@ -303,6 +403,20 @@ object ARGBPaletteRegistry {
         register(ARGBGradientPalette("Ghost White",
             ARGBColor(50, 255, 255, 255),
             ARGBColor(200, 255, 255, 255)))
+
+        initialized = true
+    }
+
+    /**
+     * Reset the registry to its initial state (useful for testing)
+     * @param includeBuiltIn if true, re-initializes built-in palettes after clearing
+     */
+    internal fun reset(includeBuiltIn: Boolean = true) {
+        palettes.clear()
+        initialized = false
+        if (includeBuiltIn) {
+            initializeBuiltInPalettes()
+        }
     }
 
     fun register(palette: ARGBPalette) {

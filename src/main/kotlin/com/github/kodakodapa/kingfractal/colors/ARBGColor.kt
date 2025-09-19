@@ -1,4 +1,6 @@
-package github.kodakodapa.kingfractal.colors
+package com.github.kodakodapa.kingfractal.colors
+
+import kotlin.math.abs
 
 
 /**
@@ -151,7 +153,7 @@ object ARGBInterpolation {
 
     private fun hsvToRGB(h: Float, s: Float, v: Float): IntArray {
         val c = v * s
-        val x = c * (1f - kotlin.math.abs((h / 60f) % 2f - 1f))
+        val x = c * (1f - abs((h / 60f) % 2f - 1f))
         val m = v - c
 
         val (r1, g1, b1) = when {
@@ -198,63 +200,140 @@ object ARGBInterpolation {
  * This provides the requested [256][4] size vectors functionality
  */
 class ARGBColorMatrix(val size: Int = 255) {
+    init {
+        require(size >= 1) { "Size must be at least 1, but was $size" }
+    }
     private val matrix = Array(size + 1) { ARGBColor.BLACK.toVector() }
 
     /**
      * Set color at index using ARGB color
      */
-    operator fun set(index: Int, color: ARGBColor) {
-        require(index in 0 .. size) { "Index $index out of bounds [0, $size)" }
-        matrix[index] = color.toVector()
+    operator fun set(index: Int, color: ARGBColor?) {
+        require(index in 0..size) { "Index $index out of bounds [0, $size]" }
+        val safeColor = color ?: ARGBColor.BLACK
+        try {
+            matrix[index] = safeColor.toVector()
+        } catch (e: Exception) {
+            // Fallback to black if vector conversion fails
+            matrix[index] = ARGBColor.BLACK.toVector()
+        }
     }
 
     /**
      * Get color at index as ARGB color
      */
     operator fun get(index: Int): ARGBColor {
-        require(index in 0 .. size) { "Index $index out of bounds [0, $size)" }
-        return ARGBColor.fromVector(matrix[index])
+        require(index in 0..size) { "Index $index out of bounds [0, $size]" }
+        return try {
+            ARGBColor.fromVector(matrix[index])
+        } catch (e: Exception) {
+            // Fallback to black if vector conversion fails
+            ARGBColor.BLACK
+        }
     }
 
     /**
      * Get raw vector at index [A, R, G, B]
      */
     fun getVector(index: Int): IntArray {
-        require(index in 0 .. size) { "Index $index out of bounds [0, $size)" }
-        return matrix[index].copyOf()
+        require(index in 0..size) { "Index $index out of bounds [0, $size]" }
+        return try {
+            matrix[index].copyOf()
+        } catch (e: Exception) {
+            // Fallback to black vector
+            ARGBColor.BLACK.toVector()
+        }
     }
 
     /**
      * Set vector at index [A, R, G, B]
      */
-    fun setVector(index: Int, vector: IntArray) {
-        require(index in 0 .. size) { "Index $index out of bounds [0, $size)" }
-        require(vector.size == 4) { "Vector must have 4 components" }
-        matrix[index] = vector.copyOf()
+    fun setVector(index: Int, vector: IntArray?) {
+        require(index in 0..size) { "Index $index out of bounds [0, $size]" }
+
+        if (vector == null) {
+            matrix[index] = ARGBColor.BLACK.toVector()
+            return
+        }
+
+        require(vector.size == 4) { "Vector must have 4 components, got ${vector.size}" }
+
+        // Validate vector components are in valid range
+        val safeVector = vector.map { it.coerceIn(0, 255) }.toIntArray()
+
+        try {
+            matrix[index] = safeVector.copyOf()
+        } catch (e: Exception) {
+            // Fallback to black if copy fails
+            matrix[index] = ARGBColor.BLACK.toVector()
+        }
     }
 
     /**
      * Get the entire matrix as [256][4] array
      */
-    fun toMatrix(): Array<IntArray> = matrix.map { it.copyOf() }.toTypedArray()
+    fun toMatrix(): Array<IntArray> {
+        return try {
+            matrix.map { it.copyOf() }.toTypedArray()
+        } catch (e: Exception) {
+            // Fallback: create a simple black-to-white gradient
+            Array(size + 1) { i ->
+                val gray = (i * 255 / size.coerceAtLeast(1)).coerceIn(0, 255)
+                intArrayOf(255, gray, gray, gray)
+            }
+        }
+    }
 
     /**
      * Fill the matrix with a gradient between two colors
      */
-    fun fillGradient(startColor: ARGBColor, endColor: ARGBColor) {
-        for (i in 0 .. size) {
-            val t = i.toFloat() / (size - 1).toFloat()
-            this[i] = ARGBInterpolation.lerp(startColor, endColor, t)
+    fun fillGradient(startColor: ARGBColor?, endColor: ARGBColor?) {
+        val safeStartColor = startColor ?: ARGBColor.BLACK
+        val safeEndColor = endColor ?: ARGBColor.WHITE
+
+        try {
+            for (i in 0..size) {
+                val t = if (size <= 1) {
+                    0f // Avoid division by zero
+                } else {
+                    i.toFloat() / (size - 1).toFloat()
+                }
+                this[i] = ARGBInterpolation.lerp(safeStartColor, safeEndColor, t)
+            }
+        } catch (e: Exception) {
+            // Fallback: fill with start color
+            for (i in 0..size) {
+                this[i] = safeStartColor
+            }
         }
     }
 
     /**
      * Fill the matrix with HSV-based gradient for smoother color transitions
      */
-    fun fillHSVGradient(startColor: ARGBColor, endColor: ARGBColor) {
-        for (i in 0 .. size) {
-            val t = i.toFloat() / (size - 1).toFloat()
-            this[i] = ARGBInterpolation.lerpHSV(startColor, endColor, t)
+    fun fillHSVGradient(startColor: ARGBColor?, endColor: ARGBColor?) {
+        val safeStartColor = startColor ?: ARGBColor.BLACK
+        val safeEndColor = endColor ?: ARGBColor.WHITE
+
+        try {
+            for (i in 0..size) {
+                val t = if (size <= 1) {
+                    0f // Avoid division by zero
+                } else {
+                    i.toFloat() / (size - 1).toFloat()
+                }
+                this[i] = ARGBInterpolation.lerpHSV(safeStartColor, safeEndColor, t)
+            }
+        } catch (e: Exception) {
+            // Fallback: fill with linear gradient if HSV fails
+            try {
+                fillGradient(safeStartColor, safeEndColor)
+            } catch (e2: Exception) {
+                // Ultimate fallback: fill with start color
+                for (i in 0..size) {
+                    this[i] = safeStartColor
+                }
+            }
         }
     }
 }

@@ -1,6 +1,5 @@
 package com.github.kodakodapa.kingfractal
 
-import com.github.kodakodapa.kingfractal.OpenCLRenderer
 import com.github.kodakodapa.kingfractal.outputs.ImageData
 import com.github.kodakodapa.kingfractal.utils.MandelbrotParams
 import org.junit.jupiter.api.AfterEach
