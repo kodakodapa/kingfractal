@@ -1,6 +1,5 @@
 package com.github.kodakodapa.kingfractal.outputs
 
-import com.github.kodakodapa.kingfractal.colors.ARGBFirePalette
 import com.github.kodakodapa.kingfractal.colors.ARGBPalette
 import com.github.kodakodapa.kingfractal.colors.ARGBRainbowPalette
 import com.github.kodakodapa.kingfractal.utils.OpenCLData
