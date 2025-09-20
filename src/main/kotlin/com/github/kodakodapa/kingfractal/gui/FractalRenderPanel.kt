@@ -25,7 +25,7 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
     private val zoomSpinner = JSpinner(SpinnerNumberModel(1.0, 0.1, 1000.0, 0.1))
     private val centerXSpinner = JSpinner(SpinnerNumberModel(-0.5, -10.0, 10.0, 0.01))
     private val centerYSpinner = JSpinner(SpinnerNumberModel(0.0, -10.0, 10.0, 0.01))
-    private val maxIterationsSpinner = JSpinner(SpinnerNumberModel(100, 10, 1000, 10))
+    private val maxIterationsSpinner = JSpinner(SpinnerNumberModel(500, 10, 2000, 10))
 
     // Julia-specific parameters
     private val juliaRealSpinner = JSpinner(SpinnerNumberModel(-0.7, -2.0, 2.0, 0.01))

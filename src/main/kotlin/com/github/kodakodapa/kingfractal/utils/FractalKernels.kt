@@ -27,20 +27,34 @@ object FractalKernels {
             float zReal = 0.0f;
             float zImag = 0.0f;
             int iterations = 0;
-            
-            while (zReal*zReal + zImag*zImag < 4.0f && iterations < maxIterations) {
+            float magnitude = 0.0f;
+
+            while (iterations < maxIterations) {
+                magnitude = zReal*zReal + zImag*zImag;
+                if (magnitude > 4.0f) break;
+
                 float temp = zReal*zReal - zImag*zImag + real;
                 zImag = 2.0f * zReal * zImag + imag;
                 zReal = temp;
                 iterations++;
             }
-            
-            // Return nbr of iterations and do the color conversion in another place
+
+            // Calculate smooth iteration count for better color mapping
+            float smoothIterations = (float)iterations;
+            if (iterations < maxIterations) {
+                // Add fractional part for smooth coloring
+                smoothIterations += 1.0f - log2(log2(magnitude));
+            }
+
+            // Normalize to 0-255 range for palette indexing
+            float normalizedValue = (smoothIterations / (float)maxIterations) * 255.0f;
+            normalizedValue = clamp(normalizedValue, 0.0f, 255.0f);
+
             int pixelIndex = (y * width + x) * 4;
-            output[pixelIndex]     = (float)iterations; // A
-            output[pixelIndex + 1] = (float)iterations; // R
-            output[pixelIndex + 2] = (float)iterations; // G
-            output[pixelIndex + 3] = (float)iterations; // B
+            output[pixelIndex]     = (unsigned char)normalizedValue; // A
+            output[pixelIndex + 1] = (unsigned char)normalizedValue; // R
+            output[pixelIndex + 2] = (unsigned char)normalizedValue; // G
+            output[pixelIndex + 3] = (unsigned char)normalizedValue; // B
         }
     """.trimIndent()
 
@@ -67,20 +81,34 @@ object FractalKernels {
             
             // Julia set iteration: z = z^2 + c (where c is constant)
             int iterations = 0;
-            
-            while (zReal*zReal + zImag*zImag < 4.0f && iterations < maxIterations) {
+            float magnitude = 0.0f;
+
+            while (iterations < maxIterations) {
+                magnitude = zReal*zReal + zImag*zImag;
+                if (magnitude > 4.0f) break;
+
                 float temp = zReal*zReal - zImag*zImag + juliaReal;
                 zImag = 2.0f * zReal * zImag + juliaImag;
                 zReal = temp;
                 iterations++;
             }
-            
-            // Return nbr of iterations and do the color conversion in another place
+
+            // Calculate smooth iteration count for better color mapping
+            float smoothIterations = (float)iterations;
+            if (iterations < maxIterations) {
+                // Add fractional part for smooth coloring
+                smoothIterations += 1.0f - log2(log2(magnitude));
+            }
+
+            // Normalize to 0-255 range for palette indexing
+            float normalizedValue = (smoothIterations / (float)maxIterations) * 255.0f;
+            normalizedValue = clamp(normalizedValue, 0.0f, 255.0f);
+
             int pixelIndex = (y * width + x) * 4;
-            output[pixelIndex]     = (float)iterations; // A
-            output[pixelIndex + 1] = (float)iterations; // R
-            output[pixelIndex + 2] = (float)iterations; // G
-            output[pixelIndex + 3] = (float)iterations; // B
+            output[pixelIndex]     = (unsigned char)normalizedValue; // A
+            output[pixelIndex + 1] = (unsigned char)normalizedValue; // R
+            output[pixelIndex + 2] = (unsigned char)normalizedValue; // G
+            output[pixelIndex + 3] = (unsigned char)normalizedValue; // B
         }
     """.trimIndent()
 }

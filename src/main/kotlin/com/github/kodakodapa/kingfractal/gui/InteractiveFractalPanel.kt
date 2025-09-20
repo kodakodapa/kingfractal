@@ -132,6 +132,11 @@ class InteractiveFractalPanel(
     }
 
     fun setImage(image: BufferedImage) {
+        // Clean up previous scaled image to prevent memory leak
+        if (scaledImage != null && scaledImage != currentImage) {
+            scaledImage!!.flush()
+        }
+
         currentImage = image
 
         // Reset display parameters when new image is set
@@ -160,12 +165,24 @@ class InteractiveFractalPanel(
         val scaledHeight = (image.height * displayScale).toInt().coerceAtLeast(1)
 
         if (scaledWidth != image.width || scaledHeight != image.height) {
+            // Dispose of the previous scaled image to prevent memory leak
+            if (scaledImage != null && scaledImage != currentImage) {
+                scaledImage!!.flush()
+            }
+
             scaledImage = BufferedImage(scaledWidth, scaledHeight, BufferedImage.TYPE_INT_ARGB)
             val g2d = scaledImage!!.createGraphics()
-            g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR)
-            g2d.drawImage(image, 0, 0, scaledWidth, scaledHeight, null)
-            g2d.dispose()
+            try {
+                g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR)
+                g2d.drawImage(image, 0, 0, scaledWidth, scaledHeight, null)
+            } finally {
+                g2d.dispose()
+            }
         } else {
+            // No scaling needed, use original image
+            if (scaledImage != null && scaledImage != currentImage) {
+                scaledImage!!.flush()
+            }
             scaledImage = image
         }
     }
@@ -324,5 +341,16 @@ class InteractiveFractalPanel(
 
     fun getCurrentView(): Triple<Double, Double, Double> {
         return Triple(fractalCenterX, fractalCenterY, fractalZoom)
+    }
+
+    fun cleanup() {
+        // Dispose of scaled image to prevent memory leak
+        if (scaledImage != null && scaledImage != currentImage) {
+            scaledImage!!.flush()
+            scaledImage = null
+        }
+
+        // Clear references to help garbage collection
+        currentImage = null
     }
 }

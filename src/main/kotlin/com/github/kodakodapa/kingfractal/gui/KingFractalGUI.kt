@@ -389,6 +389,7 @@ class KingFractalGUI : JFrame("KingFractal - Palette Viewer & Fractal Renderer")
         // Clean up OpenCL resources
         try {
             fractalPanel.cleanup()
+            interactiveFractalPanel.cleanup()
         } catch (e: Exception) {
             println("Error during cleanup: ${e.message}")
         }
