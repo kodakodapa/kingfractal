@@ -7,7 +7,6 @@ import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
 
-const val RGB_CHANNELS = 3
 const val ARGB_CHANNELS = 4
 
 // Image data implementation
@@ -51,7 +50,7 @@ data class ImageData(
 
     companion object {
         fun fromDimensions(width: Int, height: Int): ImageData {
-            val pixels = ByteArray(width * height * RGB_CHANNELS) // RGB
+            val pixels = ByteArray(width * height * ARGB_CHANNELS) // RGB
             return ImageData(width, height, pixels)
         }
 

@@ -15,17 +15,16 @@ import javax.swing.filechooser.FileNameExtensionFilter
 class KingFractalGUI : JFrame("KingFractal - Palette Viewer & Fractal Renderer") {
 
     private val paletteRenderer = PaletteRender()
-    private val imageLabel = JLabel()
     private val paletteComboBox = JComboBox<String>()
     private val statusLabel = JLabel("Ready")
-    private lateinit var scrollPane: JScrollPane
     private lateinit var fractalPanel: FractalRenderPanel
+    private lateinit var interactiveFractalPanel: InteractiveFractalPanel
     private lateinit var tabbedPane: JTabbedPane
+    private var currentFractalImage: BufferedImage? = null
 
     init {
         setupUI()
         loadPalettes()
-        displayDefaultImage()
     }
 
     private fun setupUI() {
@@ -41,29 +40,27 @@ class KingFractalGUI : JFrame("KingFractal - Palette Viewer & Fractal Renderer")
         // Create left panel with tabs for different functions
         tabbedPane = JTabbedPane()
 
+        // Fractal renderer tab
+        fractalPanel = FractalRenderPanel { image -> onFractalImageGenerated(image) }
+        fractalPanel.setOnResetCallback { interactiveFractalPanel.resetView() }
+        tabbedPane.addTab("Fractal Renderer", fractalPanel)
+
         // Palette viewer tab
         val paletteViewerPanel = createPaletteViewerPanel()
         tabbedPane.addTab("Palette Viewer", paletteViewerPanel)
 
-        // Fractal renderer tab
-        fractalPanel = FractalRenderPanel { image -> displayImage(image) }
-        tabbedPane.addTab("Fractal Renderer", fractalPanel)
+        // Set Fractal Renderer as default tab
+        tabbedPane.selectedIndex = 0
 
         mainSplitPane.leftComponent = tabbedPane
         mainSplitPane.leftComponent.minimumSize = Dimension(350, 400)
 
-        // Create main image display area
-        imageLabel.horizontalAlignment = SwingConstants.CENTER
-        imageLabel.verticalAlignment = SwingConstants.CENTER
-        imageLabel.background = Color.LIGHT_GRAY
-        imageLabel.isOpaque = true
-
-        scrollPane = JScrollPane(imageLabel).apply {
-            preferredSize = Dimension(800, 600)
-            horizontalScrollBarPolicy = JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED
-            verticalScrollBarPolicy = JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED
+        // Create interactive fractal display as main component
+        interactiveFractalPanel = InteractiveFractalPanel { centerX, centerY, zoom ->
+            onFractalViewChanged(centerX, centerY, zoom)
         }
-        mainSplitPane.rightComponent = scrollPane
+
+        mainSplitPane.rightComponent = interactiveFractalPanel
         mainSplitPane.rightComponent.minimumSize = Dimension(400, 400)
 
         mainSplitPane.dividerLocation = 350
@@ -75,9 +72,9 @@ class KingFractalGUI : JFrame("KingFractal - Palette Viewer & Fractal Renderer")
         add(createStatusBar(), BorderLayout.SOUTH)
 
         // Set window properties
-        setSize(1200, 800)
+        setSize(1920, 1800)
         setLocationRelativeTo(null)
-        minimumSize = Dimension(800, 600)
+        minimumSize = Dimension(1800, 1600)
     }
 
     private fun createPaletteViewerPanel(): JPanel {
@@ -118,13 +115,16 @@ class KingFractalGUI : JFrame("KingFractal - Palette Viewer & Fractal Renderer")
                 addActionListener { loadPalettes() }
                 accelerator = KeyStroke.getKeyStroke("F5")
             })
-            add(JMenuItem("Fit to Window").apply {
-                addActionListener { fitImageToWindow() }
+            addSeparator()
+            add(JMenuItem("Fit Fractal to Window").apply {
+                addActionListener { interactiveFractalPanel.fitToWindow() }
                 accelerator = KeyStroke.getKeyStroke("ctrl 0")
             })
-            add(JMenuItem("Actual Size").apply {
-                addActionListener { showActualSize() }
-                accelerator = KeyStroke.getKeyStroke("ctrl 1")
+            addSeparator()
+            add(JMenuItem("Reset Fractal View").apply {
+                addActionListener { fractalPanel.resetView() }
+                accelerator = KeyStroke.getKeyStroke("ctrl R")
+                toolTipText = "Reset fractal view to default parameters"
             })
         }
 
@@ -183,6 +183,10 @@ class KingFractalGUI : JFrame("KingFractal - Palette Viewer & Fractal Renderer")
     }
 
     private fun loadPalettes() {
+        // Temporarily remove action listener to prevent triggering during loading
+        val listeners = paletteComboBox.actionListeners
+        listeners.forEach { paletteComboBox.removeActionListener(it) }
+
         paletteComboBox.removeAllItems()
         val paletteNames = ARGBPaletteRegistry.getPaletteNames().sorted()
 
@@ -190,31 +194,12 @@ class KingFractalGUI : JFrame("KingFractal - Palette Viewer & Fractal Renderer")
             paletteComboBox.addItem(name)
         }
 
+        // Re-add action listeners
+        listeners.forEach { paletteComboBox.addActionListener(it) }
+
         updateStatus("Loaded ${paletteNames.size} palettes")
     }
 
-    private fun displayDefaultImage() {
-        SwingUtilities.invokeLater {
-            if (paletteComboBox.itemCount > 0) {
-                paletteComboBox.selectedIndex = 0
-                renderCurrentPalette(RenderMode.COMPREHENSIVE)
-            } else {
-                displayPlaceholderImage()
-            }
-        }
-    }
-
-    private fun displayPlaceholderImage() {
-        val placeholder = BufferedImage(400, 300, BufferedImage.TYPE_INT_RGB)
-        val g2d = placeholder.createGraphics()
-        g2d.color = Color.LIGHT_GRAY
-        g2d.fillRect(0, 0, 400, 300)
-        g2d.color = Color.DARK_GRAY
-        g2d.drawString("No palettes available", 150, 150)
-        g2d.dispose()
-
-        displayImage(placeholder)
-    }
 
     private fun onPaletteSelected() {
         val selectedPalette = paletteComboBox.selectedItem as? String
@@ -273,15 +258,44 @@ class KingFractalGUI : JFrame("KingFractal - Palette Viewer & Fractal Renderer")
     }
 
     private fun displayImage(image: BufferedImage) {
-        imageLabel.icon = ImageIcon(image)
-        imageLabel.text = null
-        scrollPane.revalidate()
-        scrollPane.repaint()
+        // Show palette images in a popup dialog since we removed static display
+        val dialog = JDialog(this, "Palette Visualization", true)
+        val imageLabel = JLabel(ImageIcon(image))
+        val scrollPane = JScrollPane(imageLabel)
+        scrollPane.preferredSize = Dimension(
+            minOf(image.width + 50, 1200),
+            minOf(image.height + 50, 800)
+        )
+        dialog.add(scrollPane)
+        dialog.pack()
+        dialog.setLocationRelativeTo(this)
+        dialog.isVisible = true
+    }
+
+    private fun onFractalImageGenerated(image: BufferedImage) {
+        currentFractalImage = image
+
+        // Update the interactive panel with the new image
+        interactiveFractalPanel.setImage(image)
+
+        // Update the fractal parameters in the interactive panel
+        updateInteractiveFractalParameters()
+    }
+
+    private fun onFractalViewChanged(centerX: Double, centerY: Double, zoom: Double) {
+        // Update the fractal parameters in the render panel and trigger re-render
+        fractalPanel.updateFractalParameters(centerX, centerY, zoom)
+        updateStatus("View changed - Center: (${"%.6f".format(centerX)}, ${"%.6f".format(centerY)}) Zoom: ${"%.2e".format(zoom)}")
+    }
+
+    private fun updateInteractiveFractalParameters() {
+        // Get current parameters from fractal panel and update interactive panel
+        val (centerX, centerY, zoom) = fractalPanel.getFractalParameters()
+        interactiveFractalPanel.setFractalParameters(centerX, centerY, zoom)
     }
 
     private fun saveCurrentImage() {
-        val icon = imageLabel.icon as? ImageIcon ?: return
-        val image = icon.image
+        val image = currentFractalImage ?: return
 
         val fileChooser = JFileChooser().apply {
             fileFilter = FileNameExtensionFilter("PNG Images", "png")
@@ -292,15 +306,7 @@ class KingFractalGUI : JFrame("KingFractal - Palette Viewer & Fractal Renderer")
             val file = fileChooser.selectedFile
             try {
                 // Convert Image to BufferedImage if necessary
-                val bufferedImage = if (image is BufferedImage) {
-                    image
-                } else {
-                    val bi = BufferedImage(image.getWidth(null), image.getHeight(null), BufferedImage.TYPE_INT_ARGB)
-                    val g2d = bi.createGraphics()
-                    g2d.drawImage(image, 0, 0, null)
-                    g2d.dispose()
-                    bi
-                }
+                val bufferedImage = image
 
                 ImageIO.write(bufferedImage, "PNG", file)
                 updateStatus("Saved image: ${file.name}")
@@ -339,45 +345,6 @@ class KingFractalGUI : JFrame("KingFractal - Palette Viewer & Fractal Renderer")
         }
     }
 
-    private fun fitImageToWindow() {
-        val icon = imageLabel.icon as? ImageIcon ?: return
-        val originalImage = icon.image
-
-        val viewportSize = scrollPane.viewport.size
-        val imageSize = Dimension(originalImage.getWidth(null), originalImage.getHeight(null))
-
-        // Avoid division by zero
-        if (imageSize.width <= 0 || imageSize.height <= 0 || viewportSize.width <= 0 || viewportSize.height <= 0) {
-            return
-        }
-
-        val scale = minOf(
-            viewportSize.width.toDouble() / imageSize.width,
-            viewportSize.height.toDouble() / imageSize.height
-        )
-
-        if (scale < 1.0) {
-            val scaledWidth = (imageSize.width * scale).toInt()
-            val scaledHeight = (imageSize.height * scale).toInt()
-            val scaledImage = originalImage.getScaledInstance(scaledWidth, scaledHeight, Image.SCALE_SMOOTH)
-            imageLabel.icon = ImageIcon(scaledImage)
-        } else {
-            imageLabel.icon = ImageIcon(originalImage)
-        }
-
-        scrollPane.revalidate()
-        scrollPane.repaint()
-        updateStatus("Fitted image to window")
-    }
-
-    private fun showActualSize() {
-        val icon = imageLabel.icon as? ImageIcon ?: return
-        val originalImage = icon.image
-        imageLabel.icon = ImageIcon(originalImage)
-        scrollPane.revalidate()
-        scrollPane.repaint()
-        updateStatus("Showing actual size")
-    }
 
     private fun showAboutDialog() {
         val message = """

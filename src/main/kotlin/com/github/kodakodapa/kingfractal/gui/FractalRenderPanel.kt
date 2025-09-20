@@ -20,8 +20,8 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
     private val paletteCombo = JComboBox<String>()
 
     // Common parameters
-    private val widthSpinner = JSpinner(SpinnerNumberModel(800, 100, 4096, 100))
-    private val heightSpinner = JSpinner(SpinnerNumberModel(600, 100, 4096, 100))
+    private val widthSpinner = JSpinner(SpinnerNumberModel(1800, 100, 4096, 100))
+    private val heightSpinner = JSpinner(SpinnerNumberModel(1600, 100, 4096, 100))
     private val zoomSpinner = JSpinner(SpinnerNumberModel(1.0, 0.1, 1000.0, 0.1))
     private val centerXSpinner = JSpinner(SpinnerNumberModel(-0.5, -10.0, 10.0, 0.01))
     private val centerYSpinner = JSpinner(SpinnerNumberModel(0.0, -10.0, 10.0, 0.01))
@@ -34,6 +34,7 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
 
     // Rendering controls
     private val renderButton = JButton("Render Fractal")
+    private val resetViewButton = JButton("Reset View")
     private val statusLabel = JLabel("Ready")
 
     // OpenCL renderers
@@ -168,8 +169,12 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
         val panel = JPanel(FlowLayout(FlowLayout.CENTER))
         panel.border = TitledBorder("Rendering")
 
-        renderButton.preferredSize = Dimension(150, 30)
+        renderButton.preferredSize = Dimension(120, 30)
         panel.add(renderButton)
+
+        resetViewButton.preferredSize = Dimension(100, 30)
+        resetViewButton.toolTipText = "Reset fractal view to default parameters"
+        panel.add(resetViewButton)
 
         return panel
     }
@@ -194,6 +199,7 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
     private fun setupEventHandlers() {
         fractalTypeCombo.addActionListener { onFractalTypeChanged() }
         renderButton.addActionListener { onRenderClicked() }
+        resetViewButton.addActionListener { onResetViewClicked() }
     }
 
     private fun onFractalTypeChanged() {
@@ -321,6 +327,57 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
     fun cleanup() {
         mandelbrotRenderer?.cleanup()
         juliaRenderer?.cleanup()
+    }
+
+    fun updateFractalParameters(centerX: Double, centerY: Double, zoom: Double) {
+        centerXSpinner.value = centerX
+        centerYSpinner.value = centerY
+        zoomSpinner.value = zoom
+
+        // Automatically re-render with new parameters
+        if (renderersInitialized) {
+            onRenderClicked()
+        }
+    }
+
+    fun getFractalParameters(): Triple<Double, Double, Double> {
+        val centerX = centerXSpinner.value as Double
+        val centerY = centerYSpinner.value as Double
+        val zoom = zoomSpinner.value as Double
+        return Triple(centerX, centerY, zoom)
+    }
+
+    private fun onResetViewClicked() {
+        val selectedType = fractalTypeCombo.selectedItem as FractalType
+        when (selectedType) {
+            FractalType.MANDELBROT -> {
+                centerXSpinner.value = -0.5
+                centerYSpinner.value = 0.0
+            }
+            FractalType.JULIA -> {
+                centerXSpinner.value = 0.0
+                centerYSpinner.value = 0.0
+            }
+        }
+        zoomSpinner.value = 1.0
+
+        // Trigger re-render and notify listeners
+        if (renderersInitialized) {
+            onRenderClicked()
+        }
+        updateStatus("View reset to default parameters")
+    }
+
+    // Callback for external notification of reset events
+    private var onResetCallback: (() -> Unit)? = null
+
+    fun setOnResetCallback(callback: () -> Unit) {
+        onResetCallback = callback
+    }
+
+    fun resetView() {
+        onResetViewClicked()
+        onResetCallback?.invoke()
     }
 
     enum class FractalType(val displayName: String) {
