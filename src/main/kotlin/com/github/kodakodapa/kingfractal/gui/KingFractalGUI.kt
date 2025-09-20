@@ -10,15 +10,17 @@ import javax.swing.*
 import javax.swing.filechooser.FileNameExtensionFilter
 
 /**
- * Main GUI application for KingFractal palette visualization
+ * Main GUI application for KingFractal palette visualization and fractal rendering
  */
-class KingFractalGUI : JFrame("KingFractal Palette Viewer") {
+class KingFractalGUI : JFrame("KingFractal - Palette Viewer & Fractal Renderer") {
 
     private val paletteRenderer = PaletteRender()
     private val imageLabel = JLabel()
     private val paletteComboBox = JComboBox<String>()
     private val statusLabel = JLabel("Ready")
     private lateinit var scrollPane: JScrollPane
+    private lateinit var fractalPanel: FractalRenderPanel
+    private lateinit var tabbedPane: JTabbedPane
 
     init {
         setupUI()
@@ -33,8 +35,22 @@ class KingFractalGUI : JFrame("KingFractal Palette Viewer") {
         // Create menu bar
         jMenuBar = createMenuBar()
 
-        // Create toolbar
-        add(createToolbar(), BorderLayout.NORTH)
+        // Create main split pane layout
+        val mainSplitPane = JSplitPane(JSplitPane.HORIZONTAL_SPLIT)
+
+        // Create left panel with tabs for different functions
+        tabbedPane = JTabbedPane()
+
+        // Palette viewer tab
+        val paletteViewerPanel = createPaletteViewerPanel()
+        tabbedPane.addTab("Palette Viewer", paletteViewerPanel)
+
+        // Fractal renderer tab
+        fractalPanel = FractalRenderPanel { image -> displayImage(image) }
+        tabbedPane.addTab("Fractal Renderer", fractalPanel)
+
+        mainSplitPane.leftComponent = tabbedPane
+        mainSplitPane.leftComponent.minimumSize = Dimension(350, 400)
 
         // Create main image display area
         imageLabel.horizontalAlignment = SwingConstants.CENTER
@@ -47,15 +63,31 @@ class KingFractalGUI : JFrame("KingFractal Palette Viewer") {
             horizontalScrollBarPolicy = JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED
             verticalScrollBarPolicy = JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED
         }
-        add(scrollPane, BorderLayout.CENTER)
+        mainSplitPane.rightComponent = scrollPane
+        mainSplitPane.rightComponent.minimumSize = Dimension(400, 400)
+
+        mainSplitPane.dividerLocation = 350
+        mainSplitPane.resizeWeight = 0.3
+
+        add(mainSplitPane, BorderLayout.CENTER)
 
         // Create status bar
         add(createStatusBar(), BorderLayout.SOUTH)
 
         // Set window properties
-        setSize(900, 700)
+        setSize(1200, 800)
         setLocationRelativeTo(null)
-        minimumSize = Dimension(600, 400)
+        minimumSize = Dimension(800, 600)
+    }
+
+    private fun createPaletteViewerPanel(): JPanel {
+        val panel = JPanel(BorderLayout())
+
+        // Create toolbar for palette operations
+        val toolbar = createToolbar()
+        panel.add(toolbar, BorderLayout.NORTH)
+
+        return panel
     }
 
     private fun createMenuBar(): JMenuBar {
@@ -66,14 +98,16 @@ class KingFractalGUI : JFrame("KingFractal Palette Viewer") {
             add(JMenuItem("Save Image...").apply {
                 addActionListener { saveCurrentImage() }
                 accelerator = KeyStroke.getKeyStroke("ctrl S")
+                toolTipText = "Save the currently displayed image"
             })
             add(JMenuItem("Save All Palettes...").apply {
                 addActionListener { saveAllPalettes() }
                 accelerator = KeyStroke.getKeyStroke("ctrl shift S")
+                toolTipText = "Save all palettes as a single image"
             })
             addSeparator()
             add(JMenuItem("Exit").apply {
-                addActionListener { System.exit(0) }
+                addActionListener { exitApplication() }
                 accelerator = KeyStroke.getKeyStroke("ctrl Q")
             })
         }
@@ -347,17 +381,19 @@ class KingFractalGUI : JFrame("KingFractal Palette Viewer") {
 
     private fun showAboutDialog() {
         val message = """
-            KingFractal Palette Viewer
+            KingFractal - Palette Viewer & Fractal Renderer
 
-            A tool for visualizing ARGB color palettes with transparency support.
+            A comprehensive tool for visualizing ARGB color palettes and rendering fractals.
 
             Features:
-            • View individual palette visualizations
+            • ARGB palette visualization with transparency support
             • Multiple rendering modes (comprehensive, gradient, swatches)
-            • Save palette images
-            • Support for transparent palettes
+            • OpenCL-accelerated fractal rendering (Mandelbrot & Julia sets)
+            • Customizable fractal parameters (zoom, center, iterations)
+            • Real-time palette application to fractal images
+            • Save images and palette visualizations
 
-            Built with Kotlin and Swing
+            Built with Kotlin, Swing, and OpenCL
         """.trimIndent()
 
         JOptionPane.showMessageDialog(
@@ -380,6 +416,16 @@ class KingFractalGUI : JFrame("KingFractal Palette Viewer") {
     private fun updateStatus(message: String) {
         statusLabel.text = message
         println(message) // Also log to console
+    }
+
+    private fun exitApplication() {
+        // Clean up OpenCL resources
+        try {
+            fractalPanel.cleanup()
+        } catch (e: Exception) {
+            println("Error during cleanup: ${e.message}")
+        }
+        System.exit(0)
     }
 
     enum class RenderMode(val displayName: String) {
