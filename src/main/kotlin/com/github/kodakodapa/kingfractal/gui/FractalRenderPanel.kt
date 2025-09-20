@@ -35,6 +35,7 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
     // Rendering controls
     private val renderButton = JButton("Render Fractal")
     private val resetViewButton = JButton("Reset View")
+    private val histogramEqualizationCheckBox = JCheckBox("Histogram Equalization", true)
     private val statusLabel = JLabel("Ready")
 
     // OpenCL renderers
@@ -166,15 +167,27 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
     }
 
     private fun createRenderControlsPanel(): JPanel {
-        val panel = JPanel(FlowLayout(FlowLayout.CENTER))
+        val panel = JPanel()
+        panel.layout = BoxLayout(panel, BoxLayout.Y_AXIS)
         panel.border = TitledBorder("Rendering")
 
+        // Button row
+        val buttonPanel = JPanel(FlowLayout(FlowLayout.CENTER))
         renderButton.preferredSize = Dimension(120, 30)
-        panel.add(renderButton)
+        buttonPanel.add(renderButton)
 
         resetViewButton.preferredSize = Dimension(100, 30)
         resetViewButton.toolTipText = "Reset fractal view to default parameters"
-        panel.add(resetViewButton)
+        buttonPanel.add(resetViewButton)
+
+        panel.add(buttonPanel)
+
+        // Color enhancement options
+        val colorPanel = JPanel(FlowLayout(FlowLayout.CENTER))
+        histogramEqualizationCheckBox.toolTipText = "Use adaptive histogram equalization for better contrast"
+        colorPanel.add(histogramEqualizationCheckBox)
+
+        panel.add(colorPanel)
 
         return panel
     }
@@ -276,19 +289,20 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
         val centerX = (centerXSpinner.value as Double).toFloat()
         val centerY = (centerYSpinner.value as Double).toFloat()
         val maxIterations = maxIterationsSpinner.value as Int
+        val useHistogramEqualization = histogramEqualizationCheckBox.isSelected
 
         return when (fractalType) {
             FractalType.MANDELBROT -> {
                 val params = MandelbrotParams(zoom, centerX, centerY, maxIterations)
                 val result = mandelbrotRenderer!!.renderFractal(width, height, params)
-                result.toBufferedImage(palette)
+                result.toBufferedImage(palette, useHistogramEqualization)
             }
             FractalType.JULIA -> {
                 val juliaReal = (juliaRealSpinner.value as Double).toFloat()
                 val juliaImag = (juliaImagSpinner.value as Double).toFloat()
                 val params = JuliaParams(zoom, centerX, centerY, juliaReal, juliaImag, maxIterations)
                 val result = juliaRenderer!!.renderFractal(width, height, params)
-                result.toBufferedImage(palette)
+                result.toBufferedImage(palette, useHistogramEqualization)
             }
         }
     }

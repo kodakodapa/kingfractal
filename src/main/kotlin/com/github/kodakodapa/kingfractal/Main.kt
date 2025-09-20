@@ -54,6 +54,7 @@ fun parseCommandLineArgs(args: Array<String>): CommandLineOptions {
                     outputFile = args[++i]
                 }
             }
+
             "-p", "--palette" -> {
                 if (i + 1 < args.size) {
                     palette = args[++i]
@@ -70,7 +71,8 @@ fun parseCommandLineArgs(args: Array<String>): CommandLineOptions {
  * Print usage information
  */
 fun printUsage() {
-    println("""
+    println(
+        """
         KingFractal Palette Viewer
 
         Usage: java -jar kingfractal.jar [options]
@@ -90,7 +92,8 @@ fun printUsage() {
 
             java -jar kingfractal.jar --headless -p "Rainbow" -o rainbow.png
                 Generate specific palette image in headless mode
-    """.trimIndent())
+    """.trimIndent()
+    )
 }
 
 /**
