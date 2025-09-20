@@ -323,6 +323,60 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
         juliaRenderer?.cleanup()
     }
 
+    fun getCurrentParams(): FractalParams? {
+        val fractalType = fractalTypeCombo.selectedItem as FractalType
+        val zoom = (zoomSpinner.value as Double).toFloat()
+        val centerX = (centerXSpinner.value as Double).toFloat()
+        val centerY = (centerYSpinner.value as Double).toFloat()
+        val maxIterations = maxIterationsSpinner.value as Int
+
+        return when (fractalType) {
+            FractalType.MANDELBROT -> {
+                MandelbrotParams(zoom, centerX, centerY, maxIterations)
+            }
+            FractalType.JULIA -> {
+                val juliaReal = (juliaRealSpinner.value as Double).toFloat()
+                val juliaImag = (juliaImagSpinner.value as Double).toFloat()
+                JuliaParams(zoom, centerX, centerY, juliaReal, juliaImag, maxIterations)
+            }
+        }
+    }
+
+    fun updateParams(newParams: FractalParams) {
+        SwingUtilities.invokeLater {
+            zoomSpinner.value = newParams.zoom.toDouble()
+            centerXSpinner.value = newParams.centerX.toDouble()
+            centerYSpinner.value = newParams.centerY.toDouble()
+            maxIterationsSpinner.value = newParams.maxIterations
+            
+            if (newParams is JuliaParams) {
+                juliaRealSpinner.value = newParams.juliaReal.toDouble()
+                juliaImagSpinner.value = newParams.juliaImag.toDouble()
+            }
+        }
+    }
+
+    fun resetToDefaults() {
+        SwingUtilities.invokeLater {
+            val selectedType = fractalTypeCombo.selectedItem as FractalType
+            when (selectedType) {
+                FractalType.MANDELBROT -> {
+                    zoomSpinner.value = 1.0
+                    centerXSpinner.value = -0.5
+                    centerYSpinner.value = 0.0
+                }
+                FractalType.JULIA -> {
+                    zoomSpinner.value = 1.0
+                    centerXSpinner.value = 0.0
+                    centerYSpinner.value = 0.0
+                    juliaRealSpinner.value = -0.7
+                    juliaImagSpinner.value = 0.27015
+                }
+            }
+            maxIterationsSpinner.value = 100
+        }
+    }
+
     enum class FractalType(val displayName: String) {
         MANDELBROT("Mandelbrot Set"),
         JULIA("Julia Set")

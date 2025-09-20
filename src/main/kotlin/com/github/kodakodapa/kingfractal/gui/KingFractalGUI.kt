@@ -2,7 +2,10 @@ package com.github.kodakodapa.kingfractal.gui
 
 import com.github.kodakodapa.kingfractal.colors.ARGBPaletteRegistry
 import com.github.kodakodapa.kingfractal.outputs.PaletteRender
+import com.github.kodakodapa.kingfractal.utils.FractalParams
 import java.awt.*
+import java.awt.event.MouseAdapter
+import java.awt.event.MouseEvent
 import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
@@ -10,12 +13,77 @@ import javax.swing.*
 import javax.swing.filechooser.FileNameExtensionFilter
 
 /**
+ * Custom JLabel that allows rectangle selection with mouse
+ */
+class SelectableImageLabel(private val onRectangleSelected: (Rectangle) -> Unit) : JLabel() {
+    private var selectionStart: Point? = null
+    private var selectionEnd: Point? = null
+    private var isSelecting = false
+
+    init {
+        addMouseListener(object : MouseAdapter() {
+            override fun mousePressed(e: MouseEvent) {
+                if (SwingUtilities.isLeftMouseButton(e) && icon != null) {
+                    selectionStart = e.point
+                    isSelecting = true
+                    repaint()
+                }
+            }
+
+            override fun mouseReleased(e: MouseEvent) {
+                if (isSelecting && selectionStart != null) {
+                    selectionEnd = e.point
+                    isSelecting = false
+                    val rect = createRectangle(selectionStart!!, selectionEnd!!)
+                    if (rect.width > 5 && rect.height > 5) { // Minimum selection size
+                        onRectangleSelected(rect)
+                    }
+                    selectionStart = null
+                    selectionEnd = null
+                    repaint()
+                }
+            }
+        })
+
+        addMouseMotionListener(object : MouseAdapter() {
+            override fun mouseDragged(e: MouseEvent) {
+                if (isSelecting) {
+                    selectionEnd = e.point
+                    repaint()
+                }
+            }
+        })
+    }
+
+    private fun createRectangle(start: Point, end: Point): Rectangle {
+        val x = minOf(start.x, end.x)
+        val y = minOf(start.y, end.y)
+        val width = kotlin.math.abs(end.x - start.x)
+        val height = kotlin.math.abs(end.y - start.y)
+        return Rectangle(x, y, width, height)
+    }
+
+    override fun paintComponent(g: Graphics) {
+        super.paintComponent(g)
+        
+        if (isSelecting && selectionStart != null && selectionEnd != null) {
+            val g2d = g as Graphics2D
+            g2d.color = Color.RED
+            g2d.stroke = BasicStroke(2.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 0f, floatArrayOf(5f), 0f)
+            
+            val rect = createRectangle(selectionStart!!, selectionEnd!!)
+            g2d.drawRect(rect.x, rect.y, rect.width, rect.height)
+        }
+    }
+}
+
+/**
  * Main GUI application for KingFractal palette visualization and fractal rendering
  */
 class KingFractalGUI : JFrame("KingFractal - Palette Viewer & Fractal Renderer") {
 
     private val paletteRenderer = PaletteRender()
-    private val imageLabel = JLabel()
+    private val imageLabel = SelectableImageLabel { rect -> handleRectangleSelection(rect) }
     private val paletteComboBox = JComboBox<String>()
     private val statusLabel = JLabel("Ready")
     private lateinit var scrollPane: JScrollPane
@@ -57,6 +125,7 @@ class KingFractalGUI : JFrame("KingFractal - Palette Viewer & Fractal Renderer")
         imageLabel.verticalAlignment = SwingConstants.CENTER
         imageLabel.background = Color.LIGHT_GRAY
         imageLabel.isOpaque = true
+        imageLabel.toolTipText = "Click and drag to select an area to zoom into (Fractal Renderer tab only)"
 
         scrollPane = JScrollPane(imageLabel).apply {
             preferredSize = Dimension(800, 600)
@@ -125,6 +194,12 @@ class KingFractalGUI : JFrame("KingFractal - Palette Viewer & Fractal Renderer")
             add(JMenuItem("Actual Size").apply {
                 addActionListener { showActualSize() }
                 accelerator = KeyStroke.getKeyStroke("ctrl 1")
+            })
+            addSeparator()
+            add(JMenuItem("Reset Fractal View").apply {
+                addActionListener { resetFractalView() }
+                accelerator = KeyStroke.getKeyStroke("ctrl R")
+                toolTipText = "Reset fractal to default zoom and position"
             })
         }
 
@@ -390,8 +465,13 @@ class KingFractalGUI : JFrame("KingFractal - Palette Viewer & Fractal Renderer")
             • Multiple rendering modes (comprehensive, gradient, swatches)
             • OpenCL-accelerated fractal rendering (Mandelbrot & Julia sets)
             • Customizable fractal parameters (zoom, center, iterations)
+            • Interactive rectangle selection for zooming into fractal regions
             • Real-time palette application to fractal images
             • Save images and palette visualizations
+
+            Controls:
+            • Click and drag on fractal images to zoom into selected areas
+            • Use Ctrl+R to reset fractal view to defaults
 
             Built with Kotlin, Swing, and OpenCL
         """.trimIndent()
@@ -416,6 +496,72 @@ class KingFractalGUI : JFrame("KingFractal - Palette Viewer & Fractal Renderer")
     private fun updateStatus(message: String) {
         statusLabel.text = message
         println(message) // Also log to console
+    }
+
+    private fun handleRectangleSelection(rect: Rectangle) {
+        // Only handle rectangle selection if we're on the fractal renderer tab
+        if (tabbedPane.selectedIndex != 1) {
+            updateStatus("Rectangle selection only works in Fractal Renderer tab")
+            return
+        }
+
+        val icon = imageLabel.icon as? ImageIcon ?: return
+        val image = icon.image
+        
+        // Convert rectangle coordinates to fractal coordinates
+        val imageWidth = image.getWidth(null)
+        val imageHeight = image.getHeight(null)
+        
+        if (imageWidth <= 0 || imageHeight <= 0) return
+        
+        // Get current fractal parameters
+        val currentParams = fractalPanel.getCurrentParams() ?: return
+        
+        // Calculate the fractal coordinate range for the selected rectangle
+        val fractalCoords = convertPixelToFractalCoordinates(
+            rect, imageWidth, imageHeight, currentParams
+        )
+        
+        // Update the fractal parameters
+        fractalPanel.updateParams(fractalCoords)
+        
+        updateStatus("Zoomed to selected region")
+    }
+
+    private fun convertPixelToFractalCoordinates(
+        rect: Rectangle, 
+        imageWidth: Int, 
+        imageHeight: Int, 
+        params: FractalParams
+    ): FractalParams {
+        // Calculate the fractal coordinate system bounds
+        val aspectRatio = imageWidth.toFloat() / imageHeight.toFloat()
+        val halfWidth = 2.0f / params.zoom
+        val halfHeight = halfWidth / aspectRatio
+        
+        val fractalLeft = params.centerX - halfWidth
+        val fractalRight = params.centerX + halfWidth
+        val fractalTop = params.centerY - halfHeight
+        val fractalBottom = params.centerY + halfHeight
+        
+        // Convert pixel coordinates to fractal coordinates
+        val selectionLeft = fractalLeft + (rect.x.toFloat() / imageWidth) * (fractalRight - fractalLeft)
+        val selectionRight = fractalLeft + ((rect.x + rect.width).toFloat() / imageWidth) * (fractalRight - fractalLeft)
+        val selectionTop = fractalTop + (rect.y.toFloat() / imageHeight) * (fractalBottom - fractalTop)
+        val selectionBottom = fractalTop + ((rect.y + rect.height).toFloat() / imageHeight) * (fractalBottom - fractalTop)
+        
+        // Calculate new center and zoom
+        val newCenterX = (selectionLeft + selectionRight) / 2
+        val newCenterY = (selectionTop + selectionBottom) / 2
+        val selectionWidth = selectionRight - selectionLeft
+        val newZoom = 2.0f / selectionWidth
+        
+        return params.withNewParams(newZoom, newCenterX, newCenterY)
+    }
+
+    private fun resetFractalView() {
+        fractalPanel.resetToDefaults()
+        updateStatus("Reset to default view")
     }
 
     private fun exitApplication() {
