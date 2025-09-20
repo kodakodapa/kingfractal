@@ -1,74 +1,159 @@
 package com.github.kodakodapa.kingfractal
-import com.github.kodakodapa.kingfractal.utils.FractalKernels
-import com.github.kodakodapa.kingfractal.outputs.ImageData
-import com.github.kodakodapa.kingfractal.utils.JuliaParams
-import com.github.kodakodapa.kingfractal.utils.MandelbrotParams
 
-fun main() {
-    val width = 1920
-    val height = 1080
+import com.github.kodakodapa.kingfractal.gui.KingFractalGUI
+import javax.swing.SwingUtilities
+import javax.swing.UIManager
 
-    // Create Mandelbrot renderer
-    val mandelbrotRenderer = OpenCLRenderer<ImageData>(
-        kernelSource = FractalKernels.mandelbrotKernel,
-        kernelName = "mandelbrot",
-        dataFactory = { bytes -> ImageData.fromByteArray(width, height, bytes) }
-    )
+/**
+ * Main entry point for the KingFractal application
+ */
+fun main(args: Array<String>) {
+    println("Starting KingFractal Palette Viewer...")
 
-    // Create Julia renderer
-    val juliaRenderer = OpenCLRenderer<ImageData>(
-        kernelSource = FractalKernels.juliaKernel,
-        kernelName = "julia",
-        dataFactory = { bytes -> ImageData.fromByteArray(width, height, bytes) }
-    )
+    // Parse command line arguments
+    val options = parseCommandLineArgs(args)
+
+    if (options.showHelp) {
+        printUsage()
+        return
+    }
+
+    if (options.headless) {
+        runHeadlessMode(options)
+    } else {
+        runGuiMode()
+    }
+}
+
+/**
+ * Command line options
+ */
+data class CommandLineOptions(
+    val showHelp: Boolean = false,
+    val headless: Boolean = false,
+    val outputFile: String? = null,
+    val palette: String? = null
+)
+
+/**
+ * Parse command line arguments
+ */
+fun parseCommandLineArgs(args: Array<String>): CommandLineOptions {
+    var showHelp = false
+    var headless = false
+    var outputFile: String? = null
+    var palette: String? = null
+
+    var i = 0
+    while (i < args.size) {
+        when (args[i]) {
+            "-h", "--help" -> showHelp = true
+            "--headless" -> headless = true
+            "-o", "--output" -> {
+                if (i + 1 < args.size) {
+                    outputFile = args[++i]
+                }
+            }
+            "-p", "--palette" -> {
+                if (i + 1 < args.size) {
+                    palette = args[++i]
+                }
+            }
+        }
+        i++
+    }
+
+    return CommandLineOptions(showHelp, headless, outputFile, palette)
+}
+
+/**
+ * Print usage information
+ */
+fun printUsage() {
+    println("""
+        KingFractal Palette Viewer
+
+        Usage: java -jar kingfractal.jar [options]
+
+        Options:
+            -h, --help          Show this help message
+            --headless          Run in headless mode (no GUI)
+            -o, --output FILE   Output file for headless mode
+            -p, --palette NAME  Palette name for headless mode
+
+        Examples:
+            java -jar kingfractal.jar
+                Launch GUI mode
+
+            java -jar kingfractal.jar --headless -o all_palettes.png
+                Generate all palettes image in headless mode
+
+            java -jar kingfractal.jar --headless -p "Rainbow" -o rainbow.png
+                Generate specific palette image in headless mode
+    """.trimIndent())
+}
+
+/**
+ * Run the application in headless mode (no GUI)
+ */
+fun runHeadlessMode(options: CommandLineOptions) {
+    println("Running in headless mode...")
 
     try {
-        // Initialize both renderers
-        println("=== Initializing Mandelbrot Renderer ===")
-        mandelbrotRenderer.initialize()
+        val renderer = com.github.kodakodapa.kingfractal.outputs.PaletteRender()
+        val outputFile = options.outputFile ?: "palette_output.png"
 
-        println("\n=== Initializing Julia Renderer ===")
-        juliaRenderer.initialize()
+        if (options.palette != null) {
+            // Render specific palette
+            val palette = com.github.kodakodapa.kingfractal.colors.ARGBPaletteRegistry.getPalette(options.palette)
+            if (palette != null) {
+                println("Rendering palette: ${options.palette}")
+                renderer.saveAsPng(outputFile, palette)
+            } else {
+                println("Error: Palette '${options.palette}' not found")
+                println("Available palettes:")
+                com.github.kodakodapa.kingfractal.colors.ARGBPaletteRegistry.getPaletteNames().forEach {
+                    println("  - $it")
+                }
+                return
+            }
+        } else {
+            // Render all palettes
+            println("Rendering all palettes...")
+            renderer.saveAllPalettesAsPng(outputFile)
+        }
 
-        // Render Mandelbrot set
-        println("\n=== Rendering Mandelbrot Set ===")
-        val mandelbrotParams = MandelbrotParams(
-            zoom = 1.0f,
-            centerX = -0.5f,
-            centerY = 0.0f,
-            maxIterations = 100
-        )
+        println("Headless rendering complete.")
+    } catch (e: Exception) {
+        println("Error in headless mode: ${e.message}")
+        e.printStackTrace()
+    }
+}
 
-        val mandelbrotImage = ImageData.fromDimensions(width, height)
-        val mandelbrotResult = mandelbrotRenderer.execute(
-            mandelbrotImage,
-            width, height,
-            mandelbrotParams
-        )
+/**
+ * Run the application in GUI mode
+ */
+fun runGuiMode() {
+    println("Launching GUI...")
 
-        // Render Julia set
-        println("\n=== Rendering Julia Set ===")
-        val juliaParams = JuliaParams(
-            zoom = 1.0f,
-            centerX = 0.0f,
-            centerY = 0.0f,
-            juliaReal = -0.7f,
-            juliaImag = 0.27015f,
-            maxIterations = 100
-        )
+    // Set system look and feel for better native appearance
+    try {
+        UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName())
+        println("Using system look and feel: ${UIManager.getLookAndFeel().name}")
+    } catch (e: Exception) {
+        println("Warning: Could not set system look and feel: ${e.message}")
+        // Continue with default look and feel
+    }
 
-        val juliaImage = ImageData.fromDimensions(width, height)
-        val juliaResult = juliaRenderer.execute(
-            juliaImage,
-            width, height,
-            juliaParams
-        )
-
-        mandelbrotResult.saveAsPng("mandelbrot_${System.currentTimeMillis()}.png", null)
-        juliaResult.saveAsPng("julia_${System.currentTimeMillis()}.png", null)
-
-    } finally {
-        mandelbrotRenderer.cleanup()
-        juliaRenderer.cleanup()
+    // Launch GUI on Event Dispatch Thread
+    SwingUtilities.invokeLater {
+        try {
+            val gui = KingFractalGUI()
+            gui.isVisible = true
+            println("GUI launched successfully")
+        } catch (e: Exception) {
+            println("Error launching GUI: ${e.message}")
+            e.printStackTrace()
+        }
     }
 }
