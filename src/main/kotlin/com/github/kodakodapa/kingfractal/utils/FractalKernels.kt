@@ -35,18 +35,12 @@ object FractalKernels {
                 iterations++;
             }
             
-            // Color based on iterations
-            int pixelIndex = (y * width + x) * 3;
-            if (iterations == maxIterations) {
-                output[pixelIndex] = 0;     // R
-                output[pixelIndex + 1] = 0; // G  
-                output[pixelIndex + 2] = 0; // B
-            } else {
-                float t = (float)iterations / maxIterations;
-                output[pixelIndex] = (unsigned char)(255 * t);           // R
-                output[pixelIndex + 1] = (unsigned char)(255 * t * 0.5f); // G
-                output[pixelIndex + 2] = (unsigned char)(255 * (1-t));    // B
-            }
+            // Return nbr of iterations and do the color conversion in another place
+            int pixelIndex = (y * width + x) * 4;
+            output[pixelIndex]     = (float)iterations; // A
+            output[pixelIndex + 1] = (float)iterations; // R
+            output[pixelIndex + 2] = (float)iterations; // G
+            output[pixelIndex + 3] = (float)iterations; // B
         }
     """.trimIndent()
 
@@ -81,18 +75,12 @@ object FractalKernels {
                 iterations++;
             }
             
-            // Color based on iterations (different color scheme than Mandelbrot)
-            int pixelIndex = (y * width + x) * 3;
-            if (iterations == maxIterations) {
-                output[pixelIndex] = 0;     // R
-                output[pixelIndex + 1] = 0; // G
-                output[pixelIndex + 2] = 0; // B
-            } else {
-                float t = (float)iterations / maxIterations;
-                output[pixelIndex] = (unsigned char)(255 * (1-t));       // R
-                output[pixelIndex + 1] = (unsigned char)(255 * t * t);   // G
-                output[pixelIndex + 2] = (unsigned char)(255 * t);       // B
-            }
+            // Return nbr of iterations and do the color conversion in another place
+            int pixelIndex = (y * width + x) * 4;
+            output[pixelIndex]     = (float)iterations; // A
+            output[pixelIndex + 1] = (float)iterations; // R
+            output[pixelIndex + 2] = (float)iterations; // G
+            output[pixelIndex + 3] = (float)iterations; // B
         }
     """.trimIndent()
 }

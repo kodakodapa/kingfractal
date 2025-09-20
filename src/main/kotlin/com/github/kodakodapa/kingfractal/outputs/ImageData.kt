@@ -8,7 +8,7 @@ import java.io.File
 import javax.imageio.ImageIO
 
 const val RGB_CHANNELS = 3
-
+const val ARGB_CHANNELS = 4
 
 // Image data implementation
 data class ImageData(
@@ -22,17 +22,18 @@ data class ImageData(
     override fun getBufferSize(): Long = pixels.size.toLong()
 
     fun toBufferedImage(palette: ARGBPalette?): BufferedImage {
-        val image = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
+        val image = BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB)
         val actualPalette = palette ?: ARGBRainbowPalette()
         val colorMatrix = actualPalette.generateColorMatrix(256).toMatrix()
         for (y in 0 until height) {
             for (x in 0 until width) {
-                val index = (y * width + x) * RGB_CHANNELS
-                val r = colorMatrix[(pixels[index].toInt() and 0xFF)][0]
-                val g = colorMatrix[(pixels[index + 1].toInt() and 0xFF)][1]
-                val b = colorMatrix[(pixels[index + 2].toInt() and 0xFF)][2]
-                val rgb = (r shl 16) or (g shl 8) or b
-                image.setRGB(x, y, rgb)
+                val index = (y * width + x) * ARGB_CHANNELS
+                val a = colorMatrix[(pixels[index].toInt() and 0xFF)][0]
+                val r = colorMatrix[(pixels[index].toInt() and 0xFF)][1]
+                val g = colorMatrix[(pixels[index + 1].toInt() and 0xFF)][2]
+                val b = colorMatrix[(pixels[index + 2].toInt() and 0xFF)][3]
+                val argb = (a shl 24) or (r shl 16) or (g shl 8) or b
+                image.setRGB(x, y, argb)
             }
         }
         return image
