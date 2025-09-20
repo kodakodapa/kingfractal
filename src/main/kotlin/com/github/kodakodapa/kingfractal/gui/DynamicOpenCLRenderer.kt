@@ -4,7 +4,7 @@ import com.github.kodakodapa.kingfractal.outputs.ImageData
 import com.github.kodakodapa.kingfractal.utils.FractalParams
 import com.github.kodakodapa.kingfractal.utils.JuliaParams
 import com.github.kodakodapa.kingfractal.utils.MandelbrotParams
-import com.github.kodakodapa.kingfractal.outputs.RGB_CHANNELS
+import com.github.kodakodapa.kingfractal.outputs.ARGB_CHANNELS
 import org.jocl.*
 
 /**
@@ -97,7 +97,8 @@ class DynamicOpenCLRenderer(
         requireNotNull(commandQueue) { "Command queue not initialized" }
         requireNotNull(kernel) { "Kernel not initialized" }
 
-        val outputSize = width * height * RGB_CHANNELS.toLong() // RGB
+        val outputSize = width * height * ARGB_CHANNELS.toLong() // RGB
+
 
         // Create OpenCL memory objects
         val outputMem = CL.clCreateBuffer(context, CL.CL_MEM_WRITE_ONLY, outputSize, null, null)

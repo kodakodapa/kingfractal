@@ -7,8 +7,7 @@ import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
 
-const val RGB_CHANNELS = 3
-
+const val ARGB_CHANNELS = 4
 
 // Image data implementation
 data class ImageData(
@@ -22,20 +21,44 @@ data class ImageData(
     override fun getBufferSize(): Long = pixels.size.toLong()
 
     fun toBufferedImage(palette: ARGBPalette?): BufferedImage {
-        val image = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
+        val image = BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB)
         val actualPalette = palette ?: ARGBRainbowPalette()
         val colorMatrix = actualPalette.generateColorMatrix(256).toMatrix()
+
         for (y in 0 until height) {
             for (x in 0 until width) {
-                val index = (y * width + x) * RGB_CHANNELS
-                val r = colorMatrix[(pixels[index].toInt() and 0xFF)][0]
-                val g = colorMatrix[(pixels[index + 1].toInt() and 0xFF)][1]
-                val b = colorMatrix[(pixels[index + 2].toInt() and 0xFF)][2]
-                val rgb = (r shl 16) or (g shl 8) or b
-                image.setRGB(x, y, rgb)
+                val index = (y * width + x) * ARGB_CHANNELS
+
+                // Get the normalized iteration value (0-255)
+                val iterationValue = pixels[index].toInt() and 0xFF
+
+                // Apply enhanced color mapping for better visual quality
+                val enhancedIndex = enhanceColorIndex(iterationValue)
+
+                val a = colorMatrix[enhancedIndex][0]
+                val r = colorMatrix[enhancedIndex][1]
+                val g = colorMatrix[enhancedIndex][2]
+                val b = colorMatrix[enhancedIndex][3]
+                val argb = (a shl 24) or (r shl 16) or (g shl 8) or b
+                image.setRGB(x, y, argb)
             }
         }
         return image
+    }
+
+    /**
+     * Enhanced color index mapping for better visual quality
+     * Applies logarithmic scaling to emphasize detail in interesting regions
+     */
+    private fun enhanceColorIndex(value: Int): Int {
+        if (value == 255) return 255 // Handle max iterations (inside set)
+
+        // Apply logarithmic scaling to spread out low iteration values
+        val normalizedValue = value / 255.0
+        val logValue = kotlin.math.ln(1.0 + normalizedValue * 9.0) / kotlin.math.ln(10.0)
+        val enhancedValue = (logValue * 255.0).toInt()
+
+        return enhancedValue.coerceIn(0, 255)
     }
 
     fun saveAsPng(filename: String, palette: ARGBPalette?) {
@@ -50,7 +73,7 @@ data class ImageData(
 
     companion object {
         fun fromDimensions(width: Int, height: Int): ImageData {
-            val pixels = ByteArray(width * height * RGB_CHANNELS) // RGB
+            val pixels = ByteArray(width * height * ARGB_CHANNELS) // RGB
             return ImageData(width, height, pixels)
         }
 

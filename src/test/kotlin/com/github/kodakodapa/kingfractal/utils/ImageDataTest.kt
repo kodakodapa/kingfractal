@@ -1,11 +1,10 @@
 package com.github.kodakodapa.kingfractal.utils
 
+import com.github.kodakodapa.kingfractal.outputs.ARGB_CHANNELS
 import com.github.kodakodapa.kingfractal.outputs.ImageData
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.*
 import java.awt.image.BufferedImage
-
-const val RGB_CHANNELS = 3
 
 class ImageDataTest {
 
@@ -13,7 +12,7 @@ class ImageDataTest {
     fun `should create ImageData with correct dimensions`() {
         val width = 100
         val height = 200
-        val pixels = ByteArray(width * height * RGB_CHANNELS)
+        val pixels = ByteArray(width * height * ARGB_CHANNELS)
 
         val imageData = ImageData(width, height, pixels)
 
@@ -31,13 +30,13 @@ class ImageDataTest {
 
         assertEquals(width, imageData.width)
         assertEquals(height, imageData.height)
-        assertEquals(width * height * RGB_CHANNELS, imageData.pixels.size)
+        assertEquals(width * height * ARGB_CHANNELS, imageData.pixels.size)
     }
 
     @Test
     fun `should return correct buffer size`() {
         val imageData = ImageData.fromDimensions(10, 10)
-        val expectedSize = 10 * 10 * RGB_CHANNELS
+        val expectedSize = 10 * 10 * ARGB_CHANNELS
 
         assertEquals(expectedSize.toLong(), imageData.getBufferSize())
     }
@@ -62,6 +61,6 @@ class ImageDataTest {
 
         assertEquals(width, bufferedImage.width)
         assertEquals(height, bufferedImage.height)
-        assertEquals(BufferedImage.TYPE_INT_RGB, bufferedImage.type)
+        assertEquals(BufferedImage.TYPE_INT_ARGB, bufferedImage.type)
     }
 }

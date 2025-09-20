@@ -1,11 +1,12 @@
 package com.github.kodakodapa.kingfractal
 
 
+import com.github.kodakodapa.kingfractal.gui.DynamicOpenCLRenderer
 import com.github.kodakodapa.kingfractal.utils.FractalKernels
 import com.github.kodakodapa.kingfractal.outputs.ImageData
 import com.github.kodakodapa.kingfractal.utils.JuliaParams
 import com.github.kodakodapa.kingfractal.utils.MandelbrotParams
-import com.github.kodakodapa.kingfractal.outputs.RGB_CHANNELS
+import com.github.kodakodapa.kingfractal.outputs.ARGB_CHANNELS
 import org.junit.jupiter.api.Assertions.assertTrue
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -21,7 +22,7 @@ class IntegrationTest {
 
         // Create image data
         val imageData = ImageData.fromDimensions(width, height)
-        assertEquals(width * height * RGB_CHANNELS, imageData.pixels.size)
+        assertEquals(width * height * ARGB_CHANNELS, imageData.pixels.size)
 
         // Create parameters
         val mandelbrotParams = MandelbrotParams(zoom = 2.0f, maxIterations = 50)
@@ -34,10 +35,9 @@ class IntegrationTest {
         assertEquals(0.2f, juliaParams.juliaImag)
 
         // Create renderer (but don't initialize to avoid OpenCL dependency)
-        val renderer = OpenCLRenderer(
+        val renderer = DynamicOpenCLRenderer(
             kernelSource = FractalKernels.mandelbrotKernel,
             kernelName = "mandelbrot",
-            dataFactory = { bytes -> ImageData.fromByteArray(width, height, bytes) }
         )
 
         assertFalse(renderer.isInitialized)
@@ -55,7 +55,7 @@ class IntegrationTest {
         val height = 15
 
         // Create test pattern
-        val originalPixels = ByteArray(width * height * RGB_CHANNELS) { index ->
+        val originalPixels = ByteArray(width * height * ARGB_CHANNELS) { index ->
             (index % 256).toByte()
         }
 
