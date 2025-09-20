@@ -1,9 +1,14 @@
 plugins {
     kotlin("jvm") version "2.2.0"
+    application
 }
 
 group = "com.github.kodakodapa"
 version = "1.0-SNAPSHOT"
+
+application {
+    mainClass.set("com.github.kodakodapa.kingfractal.MainKt")
+}
 
 repositories {
     mavenCentral()
