@@ -32,6 +32,10 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
     private val juliaImagSpinner = JSpinner(SpinnerNumberModel(0.27015, -2.0, 2.0, 0.01))
     private val juliaParamsPanel = JPanel()
 
+    // Buddhabrot-specific parameters
+    private val sampleCountSpinner = JSpinner(SpinnerNumberModel(1000000, 100000, 300000000, 100000))
+    private val buddhabrotParamsPanel = JPanel()
+
     // Rendering controls
     private val renderButton = JButton("Render Fractal")
     private val resetViewButton = JButton("Reset View")
@@ -41,6 +45,7 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
     // OpenCL renderers
     private var mandelbrotRenderer: DynamicOpenCLRenderer? = null
     private var juliaRenderer: DynamicOpenCLRenderer? = null
+    private var buddhabrotRenderer: DynamicOpenCLRenderer? = null
     private var renderersInitialized = false
 
     init {
@@ -73,6 +78,11 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
         juliaParamsPanel.add(createJuliaParametersPanel())
         juliaParamsPanel.isVisible = false
         mainPanel.add(juliaParamsPanel)
+
+        // Buddhabrot-specific parameters (initially hidden)
+        buddhabrotParamsPanel.add(createBuddhabrotParametersPanel())
+        buddhabrotParamsPanel.isVisible = false
+        mainPanel.add(buddhabrotParamsPanel)
 
         // Render controls
         mainPanel.add(createRenderControlsPanel())
@@ -166,6 +176,16 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
         return panel
     }
 
+    private fun createBuddhabrotParametersPanel(): JPanel {
+        val panel = JPanel(FlowLayout(FlowLayout.LEFT))
+        panel.border = TitledBorder("Buddhabrot Parameters")
+
+        panel.add(JLabel("Sample Count:"))
+        panel.add(sampleCountSpinner)
+
+        return panel
+    }
+
     private fun createRenderControlsPanel(): JPanel {
         val panel = JPanel()
         panel.layout = BoxLayout(panel, BoxLayout.Y_AXIS)
@@ -218,6 +238,7 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
     private fun onFractalTypeChanged() {
         val selectedType = fractalTypeCombo.selectedItem as FractalType
         juliaParamsPanel.isVisible = (selectedType == FractalType.JULIA)
+        buddhabrotParamsPanel.isVisible = (selectedType == FractalType.BUDDHABROT)
 
         // Update default parameters based on fractal type
         when (selectedType) {
@@ -228,6 +249,11 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
             FractalType.JULIA -> {
                 centerXSpinner.value = 0.0
                 centerYSpinner.value = 0.0
+            }
+            FractalType.BUDDHABROT -> {
+                centerXSpinner.value = -0.5
+                centerYSpinner.value = 0.0
+                maxIterationsSpinner.value = 1000
             }
         }
 
@@ -304,6 +330,12 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
                 val result = juliaRenderer!!.renderFractal(width, height, params)
                 result.toBufferedImage(palette, useHistogramEqualization)
             }
+            FractalType.BUDDHABROT -> {
+                val sampleCount = sampleCountSpinner.value as Int
+                val params = BuddhabrotParams(zoom, centerX, centerY, maxIterations, sampleCount)
+                val result = buddhabrotRenderer!!.renderFractal(width, height, params)
+                result.toBufferedImage(palette, useHistogramEqualization)
+            }
         }
     }
 
@@ -325,6 +357,14 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
                 juliaRenderer!!.initialize()
             }
 
+            if (buddhabrotRenderer == null) {
+                buddhabrotRenderer = DynamicOpenCLRenderer(
+                    kernelSource = FractalKernels.buddhabrotKernel,
+                    kernelName = "buddhabrot"
+                )
+                buddhabrotRenderer!!.initialize()
+            }
+
             renderersInitialized = true
             updateStatus("OpenCL renderers initialized")
         } catch (e: Exception) {
@@ -341,6 +381,7 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
     fun cleanup() {
         mandelbrotRenderer?.cleanup()
         juliaRenderer?.cleanup()
+        buddhabrotRenderer?.cleanup()
     }
 
     fun updateFractalParameters(centerX: Double, centerY: Double, zoom: Double) {
@@ -372,6 +413,11 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
                 centerXSpinner.value = 0.0
                 centerYSpinner.value = 0.0
             }
+            FractalType.BUDDHABROT -> {
+                centerXSpinner.value = -0.5
+                centerYSpinner.value = 0.0
+                maxIterationsSpinner.value = 1000
+            }
         }
         zoomSpinner.value = 1.0
 
@@ -396,6 +442,7 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
 
     enum class FractalType(val displayName: String) {
         MANDELBROT("Mandelbrot Set"),
-        JULIA("Julia Set")
+        JULIA("Julia Set"),
+        BUDDHABROT("Buddhabrot")
     }
 }

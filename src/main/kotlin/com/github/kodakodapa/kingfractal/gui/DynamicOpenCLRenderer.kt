@@ -4,6 +4,7 @@ import com.github.kodakodapa.kingfractal.outputs.ImageData
 import com.github.kodakodapa.kingfractal.utils.FractalParams
 import com.github.kodakodapa.kingfractal.utils.JuliaParams
 import com.github.kodakodapa.kingfractal.utils.MandelbrotParams
+import com.github.kodakodapa.kingfractal.utils.BuddhabrotParams
 import com.github.kodakodapa.kingfractal.outputs.ARGB_CHANNELS
 import org.jocl.*
 
@@ -97,8 +98,14 @@ class DynamicOpenCLRenderer(
         requireNotNull(commandQueue) { "Command queue not initialized" }
         requireNotNull(kernel) { "Kernel not initialized" }
 
-        val outputSize = width * height * ARGB_CHANNELS.toLong() // RGB
+        return when (params) {
+            is BuddhabrotParams -> renderBuddhabrot(width, height, params)
+            else -> renderStandardFractal(width, height, params)
+        }
+    }
 
+    private fun renderStandardFractal(width: Int, height: Int, params: FractalParams): ImageData {
+        val outputSize = width * height * ARGB_CHANNELS.toLong()
 
         // Create OpenCL memory objects
         val outputMem = CL.clCreateBuffer(context, CL.CL_MEM_WRITE_ONLY, outputSize, null, null)
@@ -113,18 +120,74 @@ class DynamicOpenCLRenderer(
             // Set fractal-specific parameters
             when (params) {
                 is MandelbrotParams -> {
-                    CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.zoom)))
-                    CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.centerX)))
-                    CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.centerY)))
-                    CL.clSetKernelArg(kernel, argIndex, Sizeof.cl_int.toLong(), Pointer.to(intArrayOf(params.maxIterations)))
+                    CL.clSetKernelArg(
+                        kernel,
+                        argIndex++,
+                        Sizeof.cl_float.toLong(),
+                        Pointer.to(floatArrayOf(params.zoom))
+                    )
+                    CL.clSetKernelArg(
+                        kernel,
+                        argIndex++,
+                        Sizeof.cl_float.toLong(),
+                        Pointer.to(floatArrayOf(params.centerX))
+                    )
+                    CL.clSetKernelArg(
+                        kernel,
+                        argIndex++,
+                        Sizeof.cl_float.toLong(),
+                        Pointer.to(floatArrayOf(params.centerY))
+                    )
+                    CL.clSetKernelArg(
+                        kernel,
+                        argIndex,
+                        Sizeof.cl_int.toLong(),
+                        Pointer.to(intArrayOf(params.maxIterations))
+                    )
                 }
+
                 is JuliaParams -> {
-                    CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.zoom)))
-                    CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.centerX)))
-                    CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.centerY)))
-                    CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.juliaReal)))
-                    CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.juliaImag)))
-                    CL.clSetKernelArg(kernel, argIndex, Sizeof.cl_int.toLong(), Pointer.to(intArrayOf(params.maxIterations)))
+                    CL.clSetKernelArg(
+                        kernel,
+                        argIndex++,
+                        Sizeof.cl_float.toLong(),
+                        Pointer.to(floatArrayOf(params.zoom))
+                    )
+                    CL.clSetKernelArg(
+                        kernel,
+                        argIndex++,
+                        Sizeof.cl_float.toLong(),
+                        Pointer.to(floatArrayOf(params.centerX))
+                    )
+                    CL.clSetKernelArg(
+                        kernel,
+                        argIndex++,
+                        Sizeof.cl_float.toLong(),
+                        Pointer.to(floatArrayOf(params.centerY))
+                    )
+                    CL.clSetKernelArg(
+                        kernel,
+                        argIndex++,
+                        Sizeof.cl_float.toLong(),
+                        Pointer.to(floatArrayOf(params.juliaReal))
+                    )
+                    CL.clSetKernelArg(
+                        kernel,
+                        argIndex++,
+                        Sizeof.cl_float.toLong(),
+                        Pointer.to(floatArrayOf(params.juliaImag))
+                    )
+                    CL.clSetKernelArg(
+                        kernel,
+                        argIndex,
+                        Sizeof.cl_int.toLong(),
+                        Pointer.to(intArrayOf(params.maxIterations))
+                    )
+                }
+
+                is BuddhabrotParams -> {
+                    // This should not happen as Buddhabrot is handled separately
+                    throw IllegalArgumentException("BuddhabrotParams should be handled by renderBuddhabrot method")
                 }
             }
 
@@ -134,8 +197,10 @@ class DynamicOpenCLRenderer(
 
             // Read result
             val outputArray = ByteArray(outputSize.toInt())
-            CL.clEnqueueReadBuffer(commandQueue, outputMem, true, 0, outputSize,
-                Pointer.to(outputArray), 0, null, null)
+            CL.clEnqueueReadBuffer(
+                commandQueue, outputMem, true, 0, outputSize,
+                Pointer.to(outputArray), 0, null, null
+            )
 
             // Wait for completion
             CL.clFinish(commandQueue)
@@ -147,6 +212,98 @@ class DynamicOpenCLRenderer(
             // Clean up memory objects
             CL.clReleaseMemObject(outputMem)
         }
+    }
+
+    private fun renderBuddhabrot(width: Int, height: Int, params: BuddhabrotParams): ImageData {
+        val outputSize = width * height * ARGB_CHANNELS.toLong()
+        val workGroupSize = 2048L // Number of work items
+        val randomStatesSize = workGroupSize * Sizeof.cl_uint.toLong()
+
+        // Initialize output buffer to zero
+        val outputMem = CL.clCreateBuffer(context, CL.CL_MEM_READ_WRITE, outputSize, null, null)
+
+        // Create random states buffer
+        val randomStatesMem = CL.clCreateBuffer(context, CL.CL_MEM_READ_WRITE, randomStatesSize, null, null)
+
+        try {
+            // Initialize output buffer to zero
+            val zeroBuffer = ByteArray(outputSize.toInt())
+            CL.clEnqueueWriteBuffer(commandQueue, outputMem, true, 0, outputSize, Pointer.to(zeroBuffer), 0, null, null)
+
+            // Initialize random states with different seeds
+            val randomStates = IntArray(workGroupSize.toInt()) { it * 12345 + System.currentTimeMillis().toInt() }
+            CL.clEnqueueWriteBuffer(
+                commandQueue, randomStatesMem, true, 0, randomStatesSize,
+                Pointer.to(randomStates), 0, null, null
+            )
+
+            // Set kernel arguments
+            var argIndex = 0
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_mem.toLong(), Pointer.to(outputMem))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_int.toLong(), Pointer.to(intArrayOf(width)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_int.toLong(), Pointer.to(intArrayOf(height)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.zoom)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.centerX)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.centerY)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_int.toLong(), Pointer.to(intArrayOf(params.maxIterations)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_int.toLong(), Pointer.to(intArrayOf(params.sampleCount)))
+            CL.clSetKernelArg(kernel, argIndex, Sizeof.cl_mem.toLong(), Pointer.to(randomStatesMem))
+
+            // Execute kernel - 1D work group for Buddhabrot
+            val globalWorkSize = longArrayOf(workGroupSize)
+            CL.clEnqueueNDRangeKernel(commandQueue, kernel, 1, null, globalWorkSize, null, 0, null, null)
+
+            // Read result
+            val outputArray = ByteArray(outputSize.toInt())
+            CL.clEnqueueReadBuffer(
+                commandQueue, outputMem, true, 0, outputSize,
+                Pointer.to(outputArray), 0, null, null
+            )
+
+            // Wait for completion
+            CL.clFinish(commandQueue)
+
+            // Normalize the histogram data to 0-255 range
+            val normalizedArray = normalizeBuddhabrotOutput(outputArray, width, height)
+
+            // Create ImageData with the correct dimensions
+            return ImageData.fromByteArray(width, height, normalizedArray)
+
+        } finally {
+            // Clean up memory objects
+            CL.clReleaseMemObject(outputMem)
+            CL.clReleaseMemObject(randomStatesMem)
+        }
+    }
+
+    private fun normalizeBuddhabrotOutput(rawOutput: ByteArray, width: Int, height: Int): ByteArray {
+        // Find the maximum hit count
+        var maxHits = 0
+        for (i in rawOutput.indices step ARGB_CHANNELS) {
+            val hits = rawOutput[i].toInt() and 0xFF
+            if (hits > maxHits) maxHits = hits
+        }
+
+        // Normalize to 0-255 range with logarithmic scaling
+        val normalizedOutput = ByteArray(rawOutput.size)
+        for (i in rawOutput.indices step ARGB_CHANNELS) {
+            val hits = rawOutput[i].toInt() and 0xFF
+            val normalizedValue = if (maxHits > 0) {
+                // Logarithmic scaling for better visualization
+                val logValue = if (hits > 0) kotlin.math.ln(1.0 + hits.toDouble()) else 0.0
+                val maxLogValue = kotlin.math.ln(1.0 + maxHits.toDouble())
+                ((logValue / maxLogValue) * 255.0).toInt().coerceIn(0, 255)
+            } else {
+                0
+            }
+
+            normalizedOutput[i] = normalizedValue.toByte()     // A
+            normalizedOutput[i + 1] = normalizedValue.toByte() // R
+            normalizedOutput[i + 2] = normalizedValue.toByte() // G
+            normalizedOutput[i + 3] = normalizedValue.toByte() // B
+        }
+
+        return normalizedOutput
     }
 
     private fun getDeviceName(): String {
