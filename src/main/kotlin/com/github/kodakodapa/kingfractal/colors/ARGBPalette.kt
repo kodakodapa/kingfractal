@@ -364,6 +364,466 @@ class ARGBLayeredPalette(
 }
 
 /**
+ * Ocean depth palette with blue-green transitions
+ */
+class ARGBOceanPalette(
+    private val enableTransparency: Boolean = false
+) : ARGBPalette {
+    override val name = if (enableTransparency) "Ocean (Transparent)" else "Ocean"
+    override val supportsTransparency = enableTransparency
+
+    override fun getColor(iterations: Int, maxIterations: Int): ARGBColor {
+        if (maxIterations <= 0) return ARGBColor.BLACK
+        if (iterations < 0) return ARGBColor.BLACK
+        if (iterations >= maxIterations) return ARGBColor(255, 0, 0, 20) // Deep ocean
+
+        val t = iterations.toFloat() / maxIterations.toFloat()
+
+        // Create ocean depth transition: light blue -> cyan -> deep blue -> dark blue
+        val (r, g, b) = when {
+            t < 0.25f -> {
+                val factor = t / 0.25f
+                val r = (173 * (1 - factor) + 0 * factor).toInt()
+                val g = (216 * (1 - factor) + 191 * factor).toInt()
+                val b = (230 * (1 - factor) + 255 * factor).toInt()
+                Triple(r, g, b)
+            }
+            t < 0.5f -> {
+                val factor = (t - 0.25f) / 0.25f
+                val r = (0 * (1 - factor) + 0 * factor).toInt()
+                val g = (191 * (1 - factor) + 128 * factor).toInt()
+                val b = (255 * (1 - factor) + 128 * factor).toInt()
+                Triple(r, g, b)
+            }
+            t < 0.75f -> {
+                val factor = (t - 0.5f) / 0.25f
+                val r = (0 * (1 - factor) + 25 * factor).toInt()
+                val g = (128 * (1 - factor) + 25 * factor).toInt()
+                val b = (128 * (1 - factor) + 112 * factor).toInt()
+                Triple(r, g, b)
+            }
+            else -> {
+                val factor = (t - 0.75f) / 0.25f
+                val r = (25 * (1 - factor) + 0 * factor).toInt()
+                val g = (25 * (1 - factor) + 0 * factor).toInt()
+                val b = (112 * (1 - factor) + 20 * factor).toInt()
+                Triple(r, g, b)
+            }
+        }
+
+        val alpha = if (enableTransparency) {
+            (128 + (127 * t)).toInt().coerceIn(0, 255)
+        } else {
+            255
+        }
+
+        return ARGBColor(alpha, r, g, b)
+    }
+}
+
+/**
+ * Sunset/sunrise palette with warm orange-red transitions
+ */
+class ARGBSunsetPalette(
+    private val enableTransparency: Boolean = false
+) : ARGBPalette {
+    override val name = if (enableTransparency) "Sunset (Transparent)" else "Sunset"
+    override val supportsTransparency = enableTransparency
+
+    override fun getColor(iterations: Int, maxIterations: Int): ARGBColor {
+        if (maxIterations <= 0) return ARGBColor.BLACK
+        if (iterations < 0) return ARGBColor.BLACK
+        if (iterations >= maxIterations) return ARGBColor(255, 25, 0, 25) // Deep purple
+
+        val t = iterations.toFloat() / maxIterations.toFloat()
+
+        // Create sunset transition: yellow -> orange -> red -> purple -> dark
+        val (r, g, b) = when {
+            t < 0.2f -> {
+                val factor = t / 0.2f
+                val r = (255 * (1 - factor) + 255 * factor).toInt()
+                val g = (255 * (1 - factor) + 165 * factor).toInt()
+                val b = (0 * (1 - factor) + 0 * factor).toInt()
+                Triple(r, g, b)
+            }
+            t < 0.4f -> {
+                val factor = (t - 0.2f) / 0.2f
+                val r = (255 * (1 - factor) + 255 * factor).toInt()
+                val g = (165 * (1 - factor) + 69 * factor).toInt()
+                val b = (0 * (1 - factor) + 0 * factor).toInt()
+                Triple(r, g, b)
+            }
+            t < 0.6f -> {
+                val factor = (t - 0.4f) / 0.2f
+                val r = (255 * (1 - factor) + 220 * factor).toInt()
+                val g = (69 * (1 - factor) + 20 * factor).toInt()
+                val b = (0 * (1 - factor) + 60 * factor).toInt()
+                Triple(r, g, b)
+            }
+            t < 0.8f -> {
+                val factor = (t - 0.6f) / 0.2f
+                val r = (220 * (1 - factor) + 128 * factor).toInt()
+                val g = (20 * (1 - factor) + 0 * factor).toInt()
+                val b = (60 * (1 - factor) + 128 * factor).toInt()
+                Triple(r, g, b)
+            }
+            else -> {
+                val factor = (t - 0.8f) / 0.2f
+                val r = (128 * (1 - factor) + 25 * factor).toInt()
+                val g = (0 * (1 - factor) + 0 * factor).toInt()
+                val b = (128 * (1 - factor) + 25 * factor).toInt()
+                Triple(r, g, b)
+            }
+        }
+
+        val alpha = if (enableTransparency) {
+            (100 + (155 * t)).toInt().coerceIn(0, 255)
+        } else {
+            255
+        }
+
+        return ARGBColor(alpha, r, g, b)
+    }
+}
+
+/**
+ * Electric neon palette with bright cyan-magenta transitions
+ */
+class ARGBElectricPalette(
+    private val enableTransparency: Boolean = false
+) : ARGBPalette {
+    override val name = if (enableTransparency) "Electric (Transparent)" else "Electric"
+    override val supportsTransparency = enableTransparency
+
+    override fun getColor(iterations: Int, maxIterations: Int): ARGBColor {
+        if (maxIterations <= 0) return ARGBColor.BLACK
+        if (iterations < 0) return ARGBColor.BLACK
+        if (iterations >= maxIterations) return ARGBColor(255, 0, 0, 0) // Black
+
+        val t = iterations.toFloat() / maxIterations.toFloat()
+
+        // Create electric transition: black -> cyan -> white -> magenta -> purple
+        val (r, g, b) = when {
+            t < 0.25f -> {
+                val factor = t / 0.25f
+                val r = (0 * (1 - factor) + 0 * factor).toInt()
+                val g = (0 * (1 - factor) + 255 * factor).toInt()
+                val b = (0 * (1 - factor) + 255 * factor).toInt()
+                Triple(r, g, b)
+            }
+            t < 0.5f -> {
+                val factor = (t - 0.25f) / 0.25f
+                val r = (0 * (1 - factor) + 255 * factor).toInt()
+                val g = (255 * (1 - factor) + 255 * factor).toInt()
+                val b = (255 * (1 - factor) + 255 * factor).toInt()
+                Triple(r, g, b)
+            }
+            t < 0.75f -> {
+                val factor = (t - 0.5f) / 0.25f
+                val r = (255 * (1 - factor) + 255 * factor).toInt()
+                val g = (255 * (1 - factor) + 0 * factor).toInt()
+                val b = (255 * (1 - factor) + 255 * factor).toInt()
+                Triple(r, g, b)
+            }
+            else -> {
+                val factor = (t - 0.75f) / 0.25f
+                val r = (255 * (1 - factor) + 128 * factor).toInt()
+                val g = (0 * (1 - factor) + 0 * factor).toInt()
+                val b = (255 * (1 - factor) + 128 * factor).toInt()
+                Triple(r, g, b)
+            }
+        }
+
+        val alpha = if (enableTransparency) {
+            (50 + (205 * t)).toInt().coerceIn(0, 255)
+        } else {
+            255
+        }
+
+        return ARGBColor(alpha, r, g, b)
+    }
+}
+
+/**
+ * Copper metallic palette with warm brown-orange tones
+ */
+class ARGBCopperPalette(
+    private val enableTransparency: Boolean = false
+) : ARGBPalette {
+    override val name = if (enableTransparency) "Copper (Transparent)" else "Copper"
+    override val supportsTransparency = enableTransparency
+
+    override fun getColor(iterations: Int, maxIterations: Int): ARGBColor {
+        if (maxIterations <= 0) return ARGBColor.BLACK
+        if (iterations < 0) return ARGBColor.BLACK
+        if (iterations >= maxIterations) return ARGBColor(255, 101, 67, 33) // Dark copper
+
+        val t = iterations.toFloat() / maxIterations.toFloat()
+
+        // Create copper transition: black -> dark copper -> bright copper -> gold
+        val (r, g, b) = when {
+            t < 0.3f -> {
+                val factor = t / 0.3f
+                val r = (0 * (1 - factor) + 101 * factor).toInt()
+                val g = (0 * (1 - factor) + 67 * factor).toInt()
+                val b = (0 * (1 - factor) + 33 * factor).toInt()
+                Triple(r, g, b)
+            }
+            t < 0.6f -> {
+                val factor = (t - 0.3f) / 0.3f
+                val r = (101 * (1 - factor) + 184 * factor).toInt()
+                val g = (67 * (1 - factor) + 115 * factor).toInt()
+                val b = (33 * (1 - factor) + 51 * factor).toInt()
+                Triple(r, g, b)
+            }
+            t < 0.8f -> {
+                val factor = (t - 0.6f) / 0.2f
+                val r = (184 * (1 - factor) + 255 * factor).toInt()
+                val g = (115 * (1 - factor) + 165 * factor).toInt()
+                val b = (51 * (1 - factor) + 0 * factor).toInt()
+                Triple(r, g, b)
+            }
+            else -> {
+                val factor = (t - 0.8f) / 0.2f
+                val r = (255 * (1 - factor) + 255 * factor).toInt()
+                val g = (165 * (1 - factor) + 215 * factor).toInt()
+                val b = (0 * (1 - factor) + 0 * factor).toInt()
+                Triple(r, g, b)
+            }
+        }
+
+        val alpha = if (enableTransparency) {
+            (80 + (175 * t)).toInt().coerceIn(0, 255)
+        } else {
+            255
+        }
+
+        return ARGBColor(alpha, r, g, b)
+    }
+}
+
+/**
+ * Grayscale palette with optional transparency and inversion
+ */
+class ARGBGrayscalePalette(
+    private val enableTransparency: Boolean = false,
+    private val inverted: Boolean = false
+) : ARGBPalette {
+    override val name = when {
+        enableTransparency && inverted -> "Grayscale Inverted (Transparent)"
+        enableTransparency -> "Grayscale (Transparent)"
+        inverted -> "Grayscale Inverted"
+        else -> "Grayscale"
+    }
+    override val supportsTransparency = enableTransparency
+
+    override fun getColor(iterations: Int, maxIterations: Int): ARGBColor {
+        if (maxIterations <= 0) return ARGBColor.BLACK
+        if (iterations < 0) return ARGBColor.BLACK
+        if (iterations >= maxIterations) return if (inverted) ARGBColor.WHITE else ARGBColor.BLACK
+
+        val t = iterations.toFloat() / maxIterations.toFloat()
+        val intensity = if (inverted) (255 * (1 - t)).toInt() else (255 * t).toInt()
+
+        val alpha = if (enableTransparency) {
+            (50 + (205 * t)).toInt().coerceIn(0, 255)
+        } else {
+            255
+        }
+
+        return ARGBColor(alpha, intensity, intensity, intensity)
+    }
+}
+
+/**
+ * Vibrant tropical palette with green-yellow-pink transitions
+ */
+class ARGBTropicalPalette(
+    private val enableTransparency: Boolean = false
+) : ARGBPalette {
+    override val name = if (enableTransparency) "Tropical (Transparent)" else "Tropical"
+    override val supportsTransparency = enableTransparency
+
+    override fun getColor(iterations: Int, maxIterations: Int): ARGBColor {
+        if (maxIterations <= 0) return ARGBColor.BLACK
+        if (iterations < 0) return ARGBColor.BLACK
+        if (iterations >= maxIterations) return ARGBColor(255, 0, 100, 0) // Dark green
+
+        val t = iterations.toFloat() / maxIterations.toFloat()
+
+        // Create tropical transition: dark green -> lime -> yellow -> orange -> pink
+        val (r, g, b) = when {
+            t < 0.2f -> {
+                val factor = t / 0.2f
+                val r = (0 * (1 - factor) + 50 * factor).toInt()
+                val g = (100 * (1 - factor) + 205 * factor).toInt()
+                val b = (0 * (1 - factor) + 50 * factor).toInt()
+                Triple(r, g, b)
+            }
+            t < 0.4f -> {
+                val factor = (t - 0.2f) / 0.2f
+                val r = (50 * (1 - factor) + 255 * factor).toInt()
+                val g = (205 * (1 - factor) + 255 * factor).toInt()
+                val b = (50 * (1 - factor) + 0 * factor).toInt()
+                Triple(r, g, b)
+            }
+            t < 0.6f -> {
+                val factor = (t - 0.4f) / 0.2f
+                val r = (255 * (1 - factor) + 255 * factor).toInt()
+                val g = (255 * (1 - factor) + 165 * factor).toInt()
+                val b = (0 * (1 - factor) + 0 * factor).toInt()
+                Triple(r, g, b)
+            }
+            t < 0.8f -> {
+                val factor = (t - 0.6f) / 0.2f
+                val r = (255 * (1 - factor) + 255 * factor).toInt()
+                val g = (165 * (1 - factor) + 20 * factor).toInt()
+                val b = (0 * (1 - factor) + 147 * factor).toInt()
+                Triple(r, g, b)
+            }
+            else -> {
+                val factor = (t - 0.8f) / 0.2f
+                val r = (255 * (1 - factor) + 199 * factor).toInt()
+                val g = (20 * (1 - factor) + 21 * factor).toInt()
+                val b = (147 * (1 - factor) + 133 * factor).toInt()
+                Triple(r, g, b)
+            }
+        }
+
+        val alpha = if (enableTransparency) {
+            (60 + (195 * t)).toInt().coerceIn(0, 255)
+        } else {
+            255
+        }
+
+        return ARGBColor(alpha, r, g, b)
+    }
+}
+
+/**
+ * Autumn forest palette with rich browns, oranges, and reds
+ */
+class ARGBAutumnPalette(
+    private val enableTransparency: Boolean = false
+) : ARGBPalette {
+    override val name = if (enableTransparency) "Autumn (Transparent)" else "Autumn"
+    override val supportsTransparency = enableTransparency
+
+    override fun getColor(iterations: Int, maxIterations: Int): ARGBColor {
+        if (maxIterations <= 0) return ARGBColor.BLACK
+        if (iterations < 0) return ARGBColor.BLACK
+        if (iterations >= maxIterations) return ARGBColor(255, 101, 67, 33) // Dark brown
+
+        val t = iterations.toFloat() / maxIterations.toFloat()
+
+        // Create autumn transition: dark brown -> orange -> red -> bright orange -> yellow
+        val (r, g, b) = when {
+            t < 0.25f -> {
+                val factor = t / 0.25f
+                val r = (101 * (1 - factor) + 205 * factor).toInt()
+                val g = (67 * (1 - factor) + 133 * factor).toInt()
+                val b = (33 * (1 - factor) + 63 * factor).toInt()
+                Triple(r, g, b)
+            }
+            t < 0.5f -> {
+                val factor = (t - 0.25f) / 0.25f
+                val r = (205 * (1 - factor) + 220 * factor).toInt()
+                val g = (133 * (1 - factor) + 20 * factor).toInt()
+                val b = (63 * (1 - factor) + 60 * factor).toInt()
+                Triple(r, g, b)
+            }
+            t < 0.75f -> {
+                val factor = (t - 0.5f) / 0.25f
+                val r = (220 * (1 - factor) + 255 * factor).toInt()
+                val g = (20 * (1 - factor) + 140 * factor).toInt()
+                val b = (60 * (1 - factor) + 0 * factor).toInt()
+                Triple(r, g, b)
+            }
+            else -> {
+                val factor = (t - 0.75f) / 0.25f
+                val r = (255 * (1 - factor) + 255 * factor).toInt()
+                val g = (140 * (1 - factor) + 255 * factor).toInt()
+                val b = (0 * (1 - factor) + 0 * factor).toInt()
+                Triple(r, g, b)
+            }
+        }
+
+        val alpha = if (enableTransparency) {
+            (70 + (185 * t)).toInt().coerceIn(0, 255)
+        } else {
+            255
+        }
+
+        return ARGBColor(alpha, r, g, b)
+    }
+}
+
+/**
+ * Ice and snow palette with cool blue-white tones
+ */
+class ARGBIcePalette(
+    private val enableTransparency: Boolean = false
+) : ARGBPalette {
+    override val name = if (enableTransparency) "Ice (Transparent)" else "Ice"
+    override val supportsTransparency = enableTransparency
+
+    override fun getColor(iterations: Int, maxIterations: Int): ARGBColor {
+        if (maxIterations <= 0) return ARGBColor.BLACK
+        if (iterations < 0) return ARGBColor.BLACK
+        if (iterations >= maxIterations) return ARGBColor(255, 25, 25, 112) // Midnight blue
+
+        val t = iterations.toFloat() / maxIterations.toFloat()
+
+        // Create ice transition: dark blue -> ice blue -> cyan -> white -> light blue
+        val (r, g, b) = when {
+            t < 0.2f -> {
+                val factor = t / 0.2f
+                val r = (25 * (1 - factor) + 70 * factor).toInt()
+                val g = (25 * (1 - factor) + 130 * factor).toInt()
+                val b = (112 * (1 - factor) + 180 * factor).toInt()
+                Triple(r, g, b)
+            }
+            t < 0.4f -> {
+                val factor = (t - 0.2f) / 0.2f
+                val r = (70 * (1 - factor) + 0 * factor).toInt()
+                val g = (130 * (1 - factor) + 191 * factor).toInt()
+                val b = (180 * (1 - factor) + 255 * factor).toInt()
+                Triple(r, g, b)
+            }
+            t < 0.6f -> {
+                val factor = (t - 0.4f) / 0.2f
+                val r = (0 * (1 - factor) + 224 * factor).toInt()
+                val g = (191 * (1 - factor) + 255 * factor).toInt()
+                val b = (255 * (1 - factor) + 255 * factor).toInt()
+                Triple(r, g, b)
+            }
+            t < 0.8f -> {
+                val factor = (t - 0.6f) / 0.2f
+                val r = (224 * (1 - factor) + 255 * factor).toInt()
+                val g = (255 * (1 - factor) + 255 * factor).toInt()
+                val b = (255 * (1 - factor) + 255 * factor).toInt()
+                Triple(r, g, b)
+            }
+            else -> {
+                val factor = (t - 0.8f) / 0.2f
+                val r = (255 * (1 - factor) + 173 * factor).toInt()
+                val g = (255 * (1 - factor) + 216 * factor).toInt()
+                val b = (255 * (1 - factor) + 230 * factor).toInt()
+                Triple(r, g, b)
+            }
+        }
+
+        val alpha = if (enableTransparency) {
+            (100 + (155 * t)).toInt().coerceIn(0, 255)
+        } else {
+            255
+        }
+
+        return ARGBColor(alpha, r, g, b)
+    }
+}
+
+/**
  * Registry for ARGB palettes with support for transparency and [256][4] vectors
  */
 object ARGBPaletteRegistry {
@@ -386,6 +846,25 @@ object ARGBPaletteRegistry {
         register(ARGBCoolBluePalette(true))
         register(ARGBPlasmaPalette(false))
         register(ARGBPlasmaPalette(true))
+
+        // Register new palettes
+        register(ARGBOceanPalette(false))
+        register(ARGBOceanPalette(true))
+        register(ARGBSunsetPalette(false))
+        register(ARGBSunsetPalette(true))
+        register(ARGBElectricPalette(false))
+        register(ARGBElectricPalette(true))
+        register(ARGBCopperPalette(false))
+        register(ARGBCopperPalette(true))
+        register(ARGBGrayscalePalette(false, false))
+        register(ARGBGrayscalePalette(false, true))
+        register(ARGBGrayscalePalette(true, false))
+        register(ARGBTropicalPalette(false))
+        register(ARGBTropicalPalette(true))
+        register(ARGBAutumnPalette(false))
+        register(ARGBAutumnPalette(true))
+        register(ARGBIcePalette(false))
+        register(ARGBIcePalette(true))
 
         // Register gradient palettes
         register(ARGBGradientPalette("Red-Yellow", ARGBColor.RED, ARGBColor(255, 255, 255, 0)))

@@ -18,3 +18,11 @@ data class JuliaParams(
     val juliaImag: Float = 0.27015f,
     val maxIterations: Int = 100
 ) : FractalParams()
+
+data class BuddhabrotParams(
+    val zoom: Float = 1.0f,
+    val centerX: Float = -0.5f,
+    val centerY: Float = 0.0f,
+    val maxIterations: Int = 1000,
+    val sampleCount: Int = 1000000
+) : FractalParams()

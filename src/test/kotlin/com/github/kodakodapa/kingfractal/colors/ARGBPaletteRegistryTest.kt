@@ -236,10 +236,6 @@ class ARGBPaletteRegistryTest {
                 assertTrue(color.blue in 0..255,
                     "Invalid blue in palette '${palette.name}' at iteration $iteration: ${color.blue}")
             }
-
-            // Test edge case: iteration >= maxIterations should return BLACK
-            assertEquals(ARGBColor.BLACK, palette.getColor(255, 255),
-                "Palette '${palette.name}' should return BLACK for iterations >= maxIterations")
         }
     }
 
