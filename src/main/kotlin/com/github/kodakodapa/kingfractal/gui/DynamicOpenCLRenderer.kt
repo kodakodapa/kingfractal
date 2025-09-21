@@ -7,6 +7,7 @@ import com.github.kodakodapa.kingfractal.utils.MandelbrotParams
 import com.github.kodakodapa.kingfractal.utils.BuddhabrotParams
 import com.github.kodakodapa.kingfractal.outputs.ARGB_CHANNELS
 import org.jocl.*
+import kotlin.math.pow
 
 /**
  * OpenCL renderer that can handle dynamic image dimensions
@@ -215,11 +216,14 @@ class DynamicOpenCLRenderer(
     }
 
     private fun renderBuddhabrot(width: Int, height: Int, params: BuddhabrotParams): ImageData {
-        val outputSize = width * height * ARGB_CHANNELS.toLong()
-        val workGroupSize = 2048L // Number of work items
+        val pixelCount = width * height
+        val outputSize = pixelCount * Sizeof.cl_uint.toLong() // Use uint32 for hit counts
+        val workGroupSize = 2048L // Reduce work items to ensure each gets enough samples
         val randomStatesSize = workGroupSize * Sizeof.cl_uint.toLong()
 
-        // Initialize output buffer to zero
+        println("Buddhabrot: ${params.sampleCount} samples across $workGroupSize workers = ${params.sampleCount / workGroupSize.toInt()} samples per worker")
+
+        // Initialize output buffer to zero (storing hit counts as uint32)
         val outputMem = CL.clCreateBuffer(context, CL.CL_MEM_READ_WRITE, outputSize, null, null)
 
         // Create random states buffer
@@ -227,7 +231,7 @@ class DynamicOpenCLRenderer(
 
         try {
             // Initialize output buffer to zero
-            val zeroBuffer = ByteArray(outputSize.toInt())
+            val zeroBuffer = IntArray(pixelCount) // Use IntArray for uint32 values
             CL.clEnqueueWriteBuffer(commandQueue, outputMem, true, 0, outputSize, Pointer.to(zeroBuffer), 0, null, null)
 
             // Initialize random states with different seeds
@@ -253,8 +257,8 @@ class DynamicOpenCLRenderer(
             val globalWorkSize = longArrayOf(workGroupSize)
             CL.clEnqueueNDRangeKernel(commandQueue, kernel, 1, null, globalWorkSize, null, 0, null, null)
 
-            // Read result
-            val outputArray = ByteArray(outputSize.toInt())
+            // Read result as uint32 array
+            val outputArray = IntArray(pixelCount)
             CL.clEnqueueReadBuffer(
                 commandQueue, outputMem, true, 0, outputSize,
                 Pointer.to(outputArray), 0, null, null
@@ -263,11 +267,12 @@ class DynamicOpenCLRenderer(
             // Wait for completion
             CL.clFinish(commandQueue)
 
-            // Normalize the histogram data to 0-255 range
-            val normalizedArray = normalizeBuddhabrotOutput(outputArray, width, height)
+            // Convert hit counts to byte array format expected by ImageData
+            // Scale hit counts to 0-255 range for iteration values
+            val byteArray = convertBuddhabrotToByteArray(outputArray, width, height)
 
             // Create ImageData with the correct dimensions
-            return ImageData.fromByteArray(width, height, normalizedArray)
+            return ImageData.fromByteArray(width, height, byteArray)
 
         } finally {
             // Clean up memory objects
@@ -276,34 +281,50 @@ class DynamicOpenCLRenderer(
         }
     }
 
-    private fun normalizeBuddhabrotOutput(rawOutput: ByteArray, width: Int, height: Int): ByteArray {
-        // Find the maximum hit count
-        var maxHits = 0
-        for (i in rawOutput.indices step ARGB_CHANNELS) {
-            val hits = rawOutput[i].toInt() and 0xFF
-            if (hits > maxHits) maxHits = hits
-        }
+    private fun convertBuddhabrotToByteArray(rawOutput: IntArray, width: Int, height: Int): ByteArray {
+        // Collect non-zero hit counts for percentile-based mapping
+        val nonZeroHits = rawOutput.filter { it > 0 }.sorted()
+        val nonZeroCount = nonZeroHits.size
 
-        // Normalize to 0-255 range with logarithmic scaling
-        val normalizedOutput = ByteArray(rawOutput.size)
-        for (i in rawOutput.indices step ARGB_CHANNELS) {
-            val hits = rawOutput[i].toInt() and 0xFF
-            val normalizedValue = if (maxHits > 0) {
-                // Logarithmic scaling for better visualization
-                val logValue = if (hits > 0) kotlin.math.ln(1.0 + hits.toDouble()) else 0.0
-                val maxLogValue = kotlin.math.ln(1.0 + maxHits.toDouble())
-                ((logValue / maxLogValue) * 255.0).toInt().coerceIn(0, 255)
+        println("Buddhabrot stats: maxHits=${nonZeroHits.lastOrNull() ?: 0}, minHits=${nonZeroHits.firstOrNull() ?: 0}, nonZeroPixels=$nonZeroCount/${rawOutput.size}")
+
+        // Create ARGB byte array using percentile-based mapping
+        val byteOutput = ByteArray(width * height * ARGB_CHANNELS)
+        val valueCounts = IntArray(256)
+
+        for (i in rawOutput.indices) {
+            val hits = rawOutput[i]
+
+            val value = if (hits > 0 && nonZeroCount > 0) {
+                // Find percentile rank of this hit count
+                val rank = nonZeroHits.binarySearch(hits).let {
+                    if (it >= 0) it else -(it + 1)
+                }
+                // Map percentile to 1-255 range
+                val percentile = rank.toDouble() / nonZeroCount
+                (percentile * 254.0 + 1.0).toInt().coerceIn(1, 255)
             } else {
                 0
             }
 
-            normalizedOutput[i] = normalizedValue.toByte()     // A
-            normalizedOutput[i + 1] = normalizedValue.toByte() // R
-            normalizedOutput[i + 2] = normalizedValue.toByte() // G
-            normalizedOutput[i + 3] = normalizedValue.toByte() // B
+            valueCounts[value]++
+
+            val pixelIndex = i * ARGB_CHANNELS
+            byteOutput[pixelIndex] = value.toByte()     // A - stores the value for palette mapping
+            byteOutput[pixelIndex + 1] = value.toByte() // R
+            byteOutput[pixelIndex + 2] = value.toByte() // G
+            byteOutput[pixelIndex + 3] = value.toByte() // B
         }
 
-        return normalizedOutput
+        // Debug: Show distribution of values
+        println("Value distribution:")
+        println("  0 (black): ${valueCounts[0]} pixels")
+        println("  1-50: ${valueCounts.slice(1..50).sum()} pixels")
+        println("  51-100: ${valueCounts.slice(51..100).sum()} pixels")
+        println("  101-200: ${valueCounts.slice(101..200).sum()} pixels")
+        println("  201-255: ${valueCounts.slice(201..255).sum()} pixels")
+
+        return byteOutput
     }
 
     private fun getDeviceName(): String {
