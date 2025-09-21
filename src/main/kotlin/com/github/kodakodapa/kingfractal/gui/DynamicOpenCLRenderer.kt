@@ -6,6 +6,7 @@ import com.github.kodakodapa.kingfractal.utils.JuliaParams
 import com.github.kodakodapa.kingfractal.utils.MandelbrotParams
 import com.github.kodakodapa.kingfractal.utils.BuddhabrotParams
 import com.github.kodakodapa.kingfractal.outputs.ARGB_CHANNELS
+import com.github.kodakodapa.kingfractal.utils.SierpinskiTriangleParams
 import org.jocl.*
 import kotlin.math.pow
 
@@ -187,6 +188,11 @@ class DynamicOpenCLRenderer(
                 }
 
                 is BuddhabrotParams -> {
+                    // This should not happen as Buddhabrot is handled separately
+                    throw IllegalArgumentException("BuddhabrotParams should be handled by renderBuddhabrot method")
+                }
+
+                is SierpinskiTriangleParams -> {
                     // This should not happen as Buddhabrot is handled separately
                     throw IllegalArgumentException("BuddhabrotParams should be handled by renderBuddhabrot method")
                 }

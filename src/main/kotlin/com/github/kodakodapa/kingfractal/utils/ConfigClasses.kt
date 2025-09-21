@@ -26,3 +26,14 @@ data class BuddhabrotParams(
     val maxIterations: Int = 1000,
     val sampleCount: Int = 1000000
 ) : FractalParams()
+
+// IFS (Iterated Function System) parameters
+sealed class IFSParams : FractalParams()
+
+data class SierpinskiTriangleParams(
+    val zoom: Float = 1.0f,
+    val centerX: Float = 0.0f,
+    val centerY: Float = 0.0f,
+    val iterations: Int = 100000,
+    val pointSize: Int = 1
+) : IFSParams()

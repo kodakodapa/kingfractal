@@ -18,6 +18,7 @@ class KingFractalGUI : JFrame("KingFractal - Palette Viewer & Fractal Renderer")
     private val paletteComboBox = JComboBox<String>()
     private val statusLabel = JLabel("Ready")
     private lateinit var fractalPanel: FractalRenderPanel
+    private lateinit var ifsPanel: IFSRenderPanel
     private lateinit var interactiveFractalPanel: InteractiveFractalPanel
     private lateinit var tabbedPane: JTabbedPane
     private var currentFractalImage: BufferedImage? = null
@@ -44,6 +45,10 @@ class KingFractalGUI : JFrame("KingFractal - Palette Viewer & Fractal Renderer")
         fractalPanel = FractalRenderPanel { image -> onFractalImageGenerated(image) }
         fractalPanel.setOnResetCallback { interactiveFractalPanel.resetView() }
         tabbedPane.addTab("Fractal Renderer", fractalPanel)
+
+        // IFS fractal tab
+        ifsPanel = IFSRenderPanel { image -> onFractalImageGenerated(image) }
+        tabbedPane.addTab("IFS Fractals", ifsPanel)
 
         // Palette viewer tab
         val paletteViewerPanel = createPaletteViewerPanel()
@@ -283,14 +288,28 @@ class KingFractalGUI : JFrame("KingFractal - Palette Viewer & Fractal Renderer")
     }
 
     private fun onFractalViewChanged(centerX: Double, centerY: Double, zoom: Double) {
-        // Update the fractal parameters in the render panel and trigger re-render
-        fractalPanel.updateFractalParameters(centerX, centerY, zoom)
+        // Check which tab is active and update the appropriate panel
+        when (tabbedPane.selectedIndex) {
+            0 -> {
+                // Fractal Renderer tab
+                fractalPanel.updateFractalParameters(centerX, centerY, zoom)
+            }
+            1 -> {
+                // IFS Fractals tab
+                ifsPanel.updateFractalParameters(centerX, centerY, zoom)
+            }
+            // Palette Viewer tab doesn't need view updates
+        }
         updateStatus("View changed - Center: (${"%.6f".format(centerX)}, ${"%.6f".format(centerY)}) Zoom: ${"%.2e".format(zoom)}")
     }
 
     private fun updateInteractiveFractalParameters() {
-        // Get current parameters from fractal panel and update interactive panel
-        val (centerX, centerY, zoom) = fractalPanel.getFractalParameters()
+        // Get current parameters from the active panel and update interactive panel
+        val (centerX, centerY, zoom) = when (tabbedPane.selectedIndex) {
+            0 -> fractalPanel.getFractalParameters()
+            1 -> ifsPanel.getFractalParameters()
+            else -> Triple(0.0, 0.0, 1.0) // Default values for palette viewer
+        }
         interactiveFractalPanel.setFractalParameters(centerX, centerY, zoom)
     }
 
