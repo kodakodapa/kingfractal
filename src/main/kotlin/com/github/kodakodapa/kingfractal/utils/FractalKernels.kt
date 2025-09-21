@@ -114,7 +114,7 @@ object FractalKernels {
 
     val buddhabrotKernel = """
         __kernel void buddhabrot(
-            __global unsigned char* output,
+            __global uint* output,
             const int width,
             const int height,
             const float zoom,
@@ -129,12 +129,16 @@ object FractalKernels {
             // Simple linear congruential generator for random numbers
             uint seed = randomStates[gid] + gid * 1103515245 + 12345;
 
-            for (int sample = 0; sample < sampleCount / get_global_size(0); sample++) {
-                // Generate random starting point
-                seed = seed * 1103515245 + 12345;
-                float cReal = ((float)(seed % 10000) / 10000.0f - 0.5f) * 4.0f;
-                seed = seed * 1103515245 + 12345;
-                float cImag = ((float)(seed % 10000) / 10000.0f - 0.5f) * 4.0f;
+            int samplesPerWorker = sampleCount / get_global_size(0);
+            for (int sample = 0; sample < samplesPerWorker; sample++) {
+                // Generate random starting point with better distribution
+                seed = seed * 1664525 + 1013904223; // Better LCG constants
+                float rand1 = (float)(seed & 0xFFFFFF) / (float)0xFFFFFF;
+                seed = seed * 1664525 + 1013904223;
+                float rand2 = (float)(seed & 0xFFFFFF) / (float)0xFFFFFF;
+
+                float cReal = (rand1 - 0.5f) * 3.0f; // Sample from [-1.5, 1.5]
+                float cImag = (rand2 - 0.5f) * 3.0f;
 
                 // Check if this point escapes (anti-Buddhabrot)
                 float zReal = 0.0f;
@@ -171,7 +175,7 @@ object FractalKernels {
 
                         // Check bounds and accumulate hit
                         if (pixelX >= 0 && pixelX < width && pixelY >= 0 && pixelY < height) {
-                            int pixelIndex = (pixelY * width + pixelX) * 4;
+                            int pixelIndex = pixelY * width + pixelX;
                             // Use atomic add to safely accumulate hits across work groups
                             atomic_add((volatile __global uint*)&output[pixelIndex], 1);
                         }
