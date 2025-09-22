@@ -4,6 +4,8 @@ import com.github.kodakodapa.kingfractal.colors.ARGBPalette
 import com.github.kodakodapa.kingfractal.colors.ARGBPaletteRegistry
 import com.github.kodakodapa.kingfractal.ifs.IFSRenderer
 import com.github.kodakodapa.kingfractal.utils.SierpinskiTriangleParams
+import com.github.kodakodapa.kingfractal.utils.FractalFlameParams
+import com.github.kodakodapa.kingfractal.utils.FractalKernels
 import java.awt.*
 import java.awt.image.BufferedImage
 import javax.swing.*
@@ -32,14 +34,23 @@ class IFSRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) : JP
     private val pointSizeSpinner = JSpinner(SpinnerNumberModel(1, 1, 10, 1))
     private val sierpinskiParamsPanel = JPanel()
 
+    // Fractal Flame-specific parameters
+    private val flameSamplesSpinner = JSpinner(SpinnerNumberModel(50, 10, 200, 10))
+    private val gammaSpinner = JSpinner(SpinnerNumberModel(2.2, 0.1, 5.0, 0.1))
+    private val brightnessSpinner = JSpinner(SpinnerNumberModel(1.0, 0.1, 3.0, 0.1))
+    private val contrastSpinner = JSpinner(SpinnerNumberModel(1.0, 0.1, 3.0, 0.1))
+    private val flameParamsPanel = JPanel()
+
     // Rendering controls
     private val renderButton = JButton("Render IFS")
     private val resetViewButton = JButton("Reset View")
     private val histogramEqualizationCheckBox = JCheckBox("Histogram Equalization", true)
     private val statusLabel = JLabel("Ready")
 
-    // IFS renderer
+    // IFS renderers
     private val ifsRenderer = IFSRenderer()
+    private var fractalFlameRenderer: DynamicOpenCLRenderer? = null
+    private var flameRendererInitialized = false
 
     init {
         setupUI()
@@ -70,6 +81,11 @@ class IFSRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) : JP
         sierpinskiParamsPanel.add(createSierpinskiParametersPanel())
         sierpinskiParamsPanel.isVisible = true
         mainPanel.add(sierpinskiParamsPanel)
+
+        // Fractal Flame-specific parameters
+        flameParamsPanel.add(createFractalFlameParametersPanel())
+        flameParamsPanel.isVisible = false
+        mainPanel.add(flameParamsPanel)
 
         // Render controls
         mainPanel.add(createRenderControlsPanel())
@@ -161,6 +177,41 @@ class IFSRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) : JP
         return panel
     }
 
+    private fun createFractalFlameParametersPanel(): JPanel {
+        val panel = JPanel(GridBagLayout())
+        panel.border = TitledBorder("Fractal Flame Parameters")
+
+        val gbc = GridBagConstraints()
+        gbc.insets = Insets(2, 2, 2, 2)
+        gbc.anchor = GridBagConstraints.WEST
+
+        // Samples
+        gbc.gridx = 0; gbc.gridy = 0
+        panel.add(JLabel("Samples:"), gbc)
+        gbc.gridx = 1
+        panel.add(flameSamplesSpinner, gbc)
+
+        // Gamma
+        gbc.gridx = 2; gbc.gridy = 0
+        panel.add(JLabel("Gamma:"), gbc)
+        gbc.gridx = 3
+        panel.add(gammaSpinner, gbc)
+
+        // Brightness
+        gbc.gridx = 0; gbc.gridy = 1
+        panel.add(JLabel("Brightness:"), gbc)
+        gbc.gridx = 1
+        panel.add(brightnessSpinner, gbc)
+
+        // Contrast
+        gbc.gridx = 2; gbc.gridy = 1
+        panel.add(JLabel("Contrast:"), gbc)
+        gbc.gridx = 3
+        panel.add(contrastSpinner, gbc)
+
+        return panel
+    }
+
     private fun createRenderControlsPanel(): JPanel {
         val panel = JPanel()
         panel.layout = BoxLayout(panel, BoxLayout.Y_AXIS)
@@ -213,6 +264,7 @@ class IFSRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) : JP
     private fun onIFSTypeChanged() {
         val selectedType = ifsTypeCombo.selectedItem as IFSType
         sierpinskiParamsPanel.isVisible = (selectedType == IFSType.SIERPINSKI_TRIANGLE)
+        flameParamsPanel.isVisible = (selectedType == IFSType.FRACTAL_FLAME)
 
         // Update default parameters based on IFS type
         when (selectedType) {
@@ -221,6 +273,16 @@ class IFSRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) : JP
                 centerYSpinner.value = 0.0
                 zoomSpinner.value = 1.0
                 iterationsSpinner.value = 100000
+            }
+            IFSType.FRACTAL_FLAME -> {
+                centerXSpinner.value = 0.0
+                centerYSpinner.value = 0.0
+                zoomSpinner.value = 1.0
+                iterationsSpinner.value = 1000000
+                flameSamplesSpinner.value = 50
+                gammaSpinner.value = 2.2
+                brightnessSpinner.value = 1.0
+                contrastSpinner.value = 1.0
             }
         }
 
@@ -282,6 +344,45 @@ class IFSRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) : JP
                 val result = ifsRenderer.renderIFS(width, height, params)
                 result.toBufferedImage(palette, useHistogramEqualization)
             }
+            IFSType.FRACTAL_FLAME -> {
+                // Initialize fractal flame renderer if needed
+                if (!flameRendererInitialized) {
+                    initializeFractalFlameRenderer()
+                }
+
+                val samples = flameSamplesSpinner.value as Int
+                val gamma = (gammaSpinner.value as Double).toFloat()
+                val brightness = (brightnessSpinner.value as Double).toFloat()
+                val contrast = (contrastSpinner.value as Double).toFloat()
+
+                val params = FractalFlameParams(
+                    zoom = zoom,
+                    centerX = centerX,
+                    centerY = centerY,
+                    iterations = iterations,
+                    samples = samples,
+                    gamma = gamma,
+                    brightness = brightness,
+                    contrast = contrast
+                )
+                val result = fractalFlameRenderer!!.renderFractal(width, height, params)
+                result.toBufferedImage(palette, useHistogramEqualization)
+            }
+        }
+    }
+
+    private fun initializeFractalFlameRenderer() {
+        try {
+            fractalFlameRenderer = DynamicOpenCLRenderer(
+                kernelSource = FractalKernels.fractalFlameKernel,
+                kernelName = "fractal_flame"
+            )
+            fractalFlameRenderer!!.initialize()
+            flameRendererInitialized = true
+            updateStatus("Fractal Flame renderer initialized")
+        } catch (e: Exception) {
+            updateStatus("Failed to initialize Fractal Flame renderer: ${e.message}")
+            flameRendererInitialized = false
         }
     }
 
@@ -298,6 +399,16 @@ class IFSRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) : JP
                 centerYSpinner.value = 0.0
                 zoomSpinner.value = 1.0
                 iterationsSpinner.value = 100000
+            }
+            IFSType.FRACTAL_FLAME -> {
+                centerXSpinner.value = 0.0
+                centerYSpinner.value = 0.0
+                zoomSpinner.value = 1.0
+                iterationsSpinner.value = 1000000
+                flameSamplesSpinner.value = 50
+                gammaSpinner.value = 2.2
+                brightnessSpinner.value = 1.0
+                contrastSpinner.value = 1.0
             }
         }
 
@@ -321,6 +432,7 @@ class IFSRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) : JP
     }
 
     enum class IFSType(val displayName: String) {
-        SIERPINSKI_TRIANGLE("Sierpinski Triangle")
+        SIERPINSKI_TRIANGLE("Sierpinski Triangle"),
+        FRACTAL_FLAME("Fractal Flame (GPU)")
     }
 }

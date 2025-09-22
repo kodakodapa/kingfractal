@@ -36,6 +36,7 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
     private val sampleCountSpinner = JSpinner(SpinnerNumberModel(1000000, 100000, 300000000, 100000))
     private val buddhabrotParamsPanel = JPanel()
 
+
     // Rendering controls
     private val renderButton = JButton("Render Fractal")
     private val resetViewButton = JButton("Reset View")
@@ -83,6 +84,7 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
         buddhabrotParamsPanel.add(createBuddhabrotParametersPanel())
         buddhabrotParamsPanel.isVisible = false
         mainPanel.add(buddhabrotParamsPanel)
+
 
         // Render controls
         mainPanel.add(createRenderControlsPanel())
@@ -185,6 +187,7 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
 
         return panel
     }
+
 
     private fun createRenderControlsPanel(): JPanel {
         val panel = JPanel()
@@ -364,6 +367,7 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
                 )
                 buddhabrotRenderer!!.initialize()
             }
+
 
             renderersInitialized = true
             updateStatus("OpenCL renderers initialized")
