@@ -5,7 +5,9 @@ import com.github.kodakodapa.kingfractal.utils.FractalParams
 import com.github.kodakodapa.kingfractal.utils.JuliaParams
 import com.github.kodakodapa.kingfractal.utils.MandelbrotParams
 import com.github.kodakodapa.kingfractal.utils.BuddhabrotParams
+import com.github.kodakodapa.kingfractal.utils.FractalFlameParams
 import com.github.kodakodapa.kingfractal.outputs.ARGB_CHANNELS
+import com.github.kodakodapa.kingfractal.utils.SierpinskiTriangleParams
 import org.jocl.*
 import kotlin.math.pow
 
@@ -101,6 +103,7 @@ class DynamicOpenCLRenderer(
 
         return when (params) {
             is BuddhabrotParams -> renderBuddhabrot(width, height, params)
+            is FractalFlameParams -> renderFractalFlame(width, height, params)
             else -> renderStandardFractal(width, height, params)
         }
     }
@@ -189,6 +192,15 @@ class DynamicOpenCLRenderer(
                 is BuddhabrotParams -> {
                     // This should not happen as Buddhabrot is handled separately
                     throw IllegalArgumentException("BuddhabrotParams should be handled by renderBuddhabrot method")
+                }
+
+                is SierpinskiTriangleParams -> {
+                    // This should not happen as IFS params are handled separately
+                    throw IllegalArgumentException("SierpinskiTriangleParams should be handled by IFS renderer")
+                }
+                is FractalFlameParams -> {
+                    // This should not happen as FractalFlame is handled separately
+                    throw IllegalArgumentException("FractalFlameParams should be handled by renderFractalFlame method")
                 }
             }
 
@@ -323,6 +335,124 @@ class DynamicOpenCLRenderer(
         println("  51-100: ${valueCounts.slice(51..100).sum()} pixels")
         println("  101-200: ${valueCounts.slice(101..200).sum()} pixels")
         println("  201-255: ${valueCounts.slice(201..255).sum()} pixels")
+
+        return byteOutput
+    }
+
+    private fun renderFractalFlame(width: Int, height: Int, params: FractalFlameParams): ImageData {
+        val pixelCount = width * height
+        val outputSize = pixelCount * Sizeof.cl_uint.toLong() // Use uint32 for hit counts
+        val workGroupSize = 256L // Number of work items
+        val randomStatesSize = workGroupSize * Sizeof.cl_uint.toLong()
+
+        println("FractalFlame: ${params.iterations} iterations across $workGroupSize workers = ${params.iterations / workGroupSize.toInt()} iterations per worker")
+
+        // Initialize output buffer to zero (storing hit counts as uint32)
+        val outputMem = CL.clCreateBuffer(context, CL.CL_MEM_READ_WRITE, outputSize, null, null)
+
+        // Create random states buffer
+        val randomStatesMem = CL.clCreateBuffer(context, CL.CL_MEM_READ_WRITE, randomStatesSize, null, null)
+
+        try {
+            // Initialize output buffer to zero
+            val zeroBuffer = IntArray(pixelCount) // Use IntArray for uint32 values
+            CL.clEnqueueWriteBuffer(commandQueue, outputMem, true, 0, outputSize, Pointer.to(zeroBuffer), 0, null, null)
+
+            // Initialize random states with different seeds
+            val randomStates = IntArray(workGroupSize.toInt()) { it * 12345 + System.currentTimeMillis().toInt() }
+            CL.clEnqueueWriteBuffer(commandQueue, randomStatesMem, true, 0, randomStatesSize,
+                Pointer.to(randomStates), 0, null, null)
+
+            // Set kernel arguments
+            var argIndex = 0
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_mem.toLong(), Pointer.to(outputMem))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_int.toLong(), Pointer.to(intArrayOf(width)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_int.toLong(), Pointer.to(intArrayOf(height)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.zoom)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.centerX)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.centerY)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_int.toLong(), Pointer.to(intArrayOf(params.iterations)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_int.toLong(), Pointer.to(intArrayOf(params.samples)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.gamma)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.brightness)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.contrast)))
+            // First transform
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.a1)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.b1)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.c1)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.d1)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.e1)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.f1)))
+            // Second transform
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.a2)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.b2)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.c2)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.d2)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.e2)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.f2)))
+            // Weights
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.weight1)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.weight2)))
+            CL.clSetKernelArg(kernel, argIndex, Sizeof.cl_mem.toLong(), Pointer.to(randomStatesMem))
+
+            // Execute kernel - 1D work group for Fractal Flame
+            val globalWorkSize = longArrayOf(workGroupSize)
+            CL.clEnqueueNDRangeKernel(commandQueue, kernel, 1, null, globalWorkSize, null, 0, null, null)
+
+            // Read result as uint32 array
+            val outputArray = IntArray(pixelCount)
+            CL.clEnqueueReadBuffer(commandQueue, outputMem, true, 0, outputSize,
+                Pointer.to(outputArray), 0, null, null)
+
+            // Wait for completion
+            CL.clFinish(commandQueue)
+
+            // Convert hit counts to byte array format expected by ImageData
+            val byteArray = convertFlameToByteArray(outputArray, width, height, params)
+
+            // Create ImageData with the correct dimensions
+            return ImageData.fromByteArray(width, height, byteArray)
+
+        } finally {
+            // Clean up memory objects
+            CL.clReleaseMemObject(outputMem)
+            CL.clReleaseMemObject(randomStatesMem)
+        }
+    }
+
+    private fun convertFlameToByteArray(rawOutput: IntArray, width: Int, height: Int, params: FractalFlameParams): ByteArray {
+        // Collect non-zero hit counts for percentile-based mapping
+        val nonZeroHits = rawOutput.filter { it > 0 }.sorted()
+        val nonZeroCount = nonZeroHits.size
+
+        println("FractalFlame stats: maxHits=${nonZeroHits.lastOrNull() ?: 0}, minHits=${nonZeroHits.firstOrNull() ?: 0}, nonZeroPixels=$nonZeroCount/${rawOutput.size}")
+
+        // Create ARGB byte array using gamma correction and percentile-based mapping
+        val byteOutput = ByteArray(width * height * ARGB_CHANNELS)
+
+        for (i in rawOutput.indices) {
+            val hits = rawOutput[i]
+
+            val value = if (hits > 0 && nonZeroCount > 0) {
+                // Find percentile rank of this hit count
+                val rank = nonZeroHits.binarySearch(hits).let {
+                    if (it >= 0) it else -(it + 1)
+                }
+                // Map percentile to 0-1 range, apply gamma correction, then scale to 1-255
+                val percentile = rank.toDouble() / nonZeroCount
+                val gammaAdjusted = percentile.pow(1.0 / params.gamma)
+                val brightness = gammaAdjusted * params.brightness * params.contrast
+                (brightness.coerceIn(0.0, 1.0) * 254.0 + 1.0).toInt().coerceIn(1, 255)
+            } else {
+                0
+            }
+
+            val pixelIndex = i * ARGB_CHANNELS
+            byteOutput[pixelIndex] = value.toByte()     // A - stores the value for palette mapping
+            byteOutput[pixelIndex + 1] = value.toByte() // R
+            byteOutput[pixelIndex + 2] = value.toByte() // G
+            byteOutput[pixelIndex + 3] = value.toByte() // B
+        }
 
         return byteOutput
     }

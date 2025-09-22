@@ -192,4 +192,108 @@ object FractalKernels {
             randomStates[gid] = seed;
         }
     """.trimIndent()
+
+    val fractalFlameKernel = """
+        __kernel void fractal_flame(
+            __global uint* histogram,
+            const int width,
+            const int height,
+            const float zoom,
+            const float centerX,
+            const float centerY,
+            const int iterations,
+            const int samples,
+            const float gamma,
+            const float brightness,
+            const float contrast,
+            // First transform coefficients
+            const float a1, const float b1, const float c1,
+            const float d1, const float e1, const float f1,
+            // Second transform coefficients
+            const float a2, const float b2, const float c2,
+            const float d2, const float e2, const float f2,
+            // Transform weights
+            const float weight1, const float weight2,
+            __global uint* randomStates
+        ) {
+            int gid = get_global_id(0);
+
+            // Initialize random seed
+            uint seed = randomStates[gid] + gid * 1103515245 + 12345;
+
+            // Number of iterations per work item
+            int iterationsPerWorker = iterations / get_global_size(0);
+
+            for (int iter = 0; iter < iterationsPerWorker; iter++) {
+                // Start with random point in [-1, 1] x [-1, 1]
+                seed = seed * 1664525 + 1013904223;
+                float x = ((float)(seed & 0xFFFFFF) / (float)0xFFFFFF) * 2.0f - 1.0f;
+                seed = seed * 1664525 + 1013904223;
+                float y = ((float)(seed & 0xFFFFFF) / (float)0xFFFFFF) * 2.0f - 1.0f;
+
+                // Skip first few iterations to let system settle
+                for (int skip = 0; skip < 20; skip++) {
+                    // Choose random transform
+                    seed = seed * 1664525 + 1013904223;
+                    float randVal = (float)(seed & 0xFFFFFF) / (float)0xFFFFFF;
+
+                    float newX, newY;
+                    if (randVal < weight1) {
+                        // Apply first transform with linear variation
+                        newX = a1 * x + b1 * y + c1;
+                        newY = d1 * x + e1 * y + f1;
+                    } else {
+                        // Apply second transform with sinusoidal variation
+                        newX = a2 * x + b2 * y + c2;
+                        newY = d2 * x + e2 * y + f2;
+                        // Apply sinusoidal variation
+                        newX = sin(newX);
+                        newY = sin(newY);
+                    }
+
+                    x = newX;
+                    y = newY;
+                }
+
+                // Now iterate and plot points
+                for (int i = 0; i < samples; i++) {
+                    // Choose random transform
+                    seed = seed * 1664525 + 1013904223;
+                    float randVal = (float)(seed & 0xFFFFFF) / (float)0xFFFFFF;
+
+                    float newX, newY;
+                    if (randVal < weight1) {
+                        // Apply first transform with linear variation
+                        newX = a1 * x + b1 * y + c1;
+                        newY = d1 * x + e1 * y + f1;
+                    } else {
+                        // Apply second transform with sinusoidal variation
+                        newX = a2 * x + b2 * y + c2;
+                        newY = d2 * x + e2 * y + f2;
+                        // Apply sinusoidal variation
+                        newX = sin(newX);
+                        newY = sin(newY);
+                    }
+
+                    x = newX;
+                    y = newY;
+
+                    // Transform to screen coordinates
+                    float screenX = ((x - centerX) * zoom + 1.0f) * width * 0.5f;
+                    float screenY = ((y - centerY) * zoom + 1.0f) * height * 0.5f;
+
+                    // Check bounds and plot
+                    if (screenX >= 0 && screenX < width && screenY >= 0 && screenY < height) {
+                        int pixelIndex = (int)screenY * width + (int)screenX;
+                        if (pixelIndex >= 0 && pixelIndex < width * height) {
+                            atomic_add((volatile __global uint*)&histogram[pixelIndex], 1);
+                        }
+                    }
+                }
+            }
+
+            // Update random state
+            randomStates[gid] = seed;
+        }
+    """.trimIndent()
 }
