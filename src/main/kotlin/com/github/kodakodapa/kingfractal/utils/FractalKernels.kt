@@ -1003,6 +1003,164 @@ object FractalKernels {
             *outY = tmp * sn;
         }
 
+        void variation_lazysusan(float tx, float ty, float weight, float lazysusan_x, float lazysusan_y, float lazysusan_spin, float lazysusan_twist, float lazysusan_space, float* outX, float* outY) {
+            float x = tx - lazysusan_x;
+            float y = ty + lazysusan_y;
+            float r = sqrt(x * x + y * y);
+
+            if (r < weight) {
+                float a = atan2(y, x) + lazysusan_spin + lazysusan_twist * (weight - r);
+                r = weight * r;
+
+                *outX = r * cos(a) + lazysusan_x;
+                *outY = r * sin(a) - lazysusan_y;
+            } else {
+                r = weight * (1.0f + lazysusan_space / r);
+
+                *outX = r * x + lazysusan_x;
+                *outY = r * y - lazysusan_y;
+            }
+        }
+
+        void variation_loonie(float tx, float ty, float weight, float* outX, float* outY) {
+            float r2 = tx * tx + ty * ty;
+            float w2 = weight * weight;
+
+            if (r2 < w2) {
+                float r = weight * sqrt(w2 / r2 - 1.0f);
+                *outX = r * tx;
+                *outY = r * ty;
+            } else {
+                *outX = weight * tx;
+                *outY = weight * ty;
+            }
+        }
+
+        void variation_pre_blur(float* tx, float* ty, float weight, uint* seed) {
+            // Generate Gaussian-distributed random number
+            float rndG = 0.0f;
+            for (int i = 0; i < 4; i++) {
+                *seed = *seed * 1664525 + 1013904223;
+                rndG += ((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF);
+            }
+            rndG = weight * (rndG - 2.0f);
+
+            *seed = *seed * 1664525 + 1013904223;
+            float rndA = ((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF) * 2.0f * M_PI;
+
+            // Note: pre-blur modifies the input coordinates
+            *tx += rndG * cos(rndA);
+            *ty += rndG * sin(rndA);
+        }
+
+        void variation_modulus(float tx, float ty, float weight, float modulus_x, float modulus_y, float* outX, float* outY) {
+            float xr = 2.0f * modulus_x;
+            float yr = 2.0f * modulus_y;
+
+            if (tx > modulus_x) {
+                *outX = weight * (-modulus_x + fmod(tx + modulus_x, xr));
+            } else if (tx < -modulus_x) {
+                *outX = weight * (modulus_x - fmod(modulus_x - tx, xr));
+            } else {
+                *outX = weight * tx;
+            }
+
+            if (ty > modulus_y) {
+                *outY = weight * (-modulus_y + fmod(ty + modulus_y, yr));
+            } else if (ty < -modulus_y) {
+                *outY = weight * (modulus_y - fmod(modulus_y - ty, yr));
+            } else {
+                *outY = weight * ty;
+            }
+        }
+
+        void variation_oscilloscope(float tx, float ty, float weight, float oscope_separation, float oscope_frequency, float oscope_amplitude, float oscope_damping, float* outX, float* outY) {
+            float tpf = 2.0f * M_PI * oscope_frequency;
+            float t;
+
+            if (oscope_damping == 0.0f) {
+                t = oscope_amplitude * cos(tpf * tx) + oscope_separation;
+            } else {
+                t = oscope_amplitude * exp(-fabs(tx) * oscope_damping) * cos(tpf * tx) + oscope_separation;
+            }
+
+            if (fabs(ty) <= t) {
+                *outX = weight * tx;
+                *outY = -weight * ty;
+            } else {
+                *outX = weight * tx;
+                *outY = weight * ty;
+            }
+        }
+
+        void variation_polar2(float tx, float ty, float weight, float* outX, float* outY) {
+            float p2v = weight / M_PI;
+            float theta = atan2(ty, tx);
+            float sumsq = tx * tx + ty * ty;
+
+            *outX = p2v * theta;
+            *outY = p2v * 0.5f * log(sumsq);
+        }
+
+        void variation_popcorn2(float tx, float ty, float weight, float popcorn2_x, float popcorn2_y, float popcorn2_c, float* outX, float* outY) {
+            *outX = weight * (tx + popcorn2_x * sin(tan(ty * popcorn2_c)));
+            *outY = weight * (ty + popcorn2_y * sin(tan(tx * popcorn2_c)));
+        }
+
+        void variation_scry(float tx, float ty, float weight, float* outX, float* outY) {
+            float sumsq = tx * tx + ty * ty;
+            float sqrt_r = sqrt(sumsq);
+            float r = 1.0f / (sqrt_r * (sumsq + 1.0f / (weight + 1e-6f)));
+
+            *outX = tx * r;
+            *outY = ty * r;
+        }
+
+        void variation_separation(float tx, float ty, float weight, float separation_x, float separation_y, float separation_xinside, float separation_yinside, float* outX, float* outY) {
+            float sx2 = separation_x * separation_x;
+            float sy2 = separation_y * separation_y;
+
+            if (tx > 0.0f) {
+                *outX = weight * (sqrt(tx * tx + sx2) - tx * separation_xinside);
+            } else {
+                *outX = -weight * (sqrt(tx * tx + sx2) + tx * separation_xinside);
+            }
+
+            if (ty > 0.0f) {
+                *outY = weight * (sqrt(ty * ty + sy2) - ty * separation_yinside);
+            } else {
+                *outY = -weight * (sqrt(ty * ty + sy2) + ty * separation_yinside);
+            }
+        }
+
+        void variation_split(float tx, float ty, float weight, float split_xsize, float split_ysize, float* outX, float* outY) {
+            if (cos(tx * split_xsize * M_PI) >= 0.0f) {
+                *outY = weight * ty;
+            } else {
+                *outY = -weight * ty;
+            }
+
+            if (cos(ty * split_ysize * M_PI) >= 0.0f) {
+                *outX = weight * tx;
+            } else {
+                *outX = -weight * tx;
+            }
+        }
+
+        void variation_splits(float tx, float ty, float weight, float splits_x, float splits_y, float* outX, float* outY) {
+            if (tx >= 0.0f) {
+                *outX = weight * (tx + splits_x);
+            } else {
+                *outX = weight * (tx - splits_x);
+            }
+
+            if (ty >= 0.0f) {
+                *outY = weight * (ty + splits_y);
+            } else {
+                *outY = weight * (ty - splits_y);
+            }
+        }
+
         // Apply variation based on type
         void apply_variation(int variationType, float tx, float ty, float weight, float* outX, float* outY, uint* seed) {
             switch(variationType) {
@@ -1071,6 +1229,17 @@ object FractalKernels {
                 case 62: variation_elliptic(tx, ty, weight, outX, outY); break;
                 case 63: variation_escher(tx, ty, weight, 0.4f, outX, outY); break;  // Default parameter
                 case 64: variation_foci(tx, ty, weight, outX, outY); break;
+                case 65: variation_lazysusan(tx, ty, weight, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, outX, outY); break;  // Default parameters
+                case 66: variation_loonie(tx, ty, weight, outX, outY); break;
+                case 67: *outX = tx; *outY = ty; break;  // pre_blur is handled separately as it modifies input
+                case 68: variation_modulus(tx, ty, weight, 1.0f, 1.0f, outX, outY); break;  // Default parameters
+                case 69: variation_oscilloscope(tx, ty, weight, 1.0f, 1.0f, 1.0f, 0.0f, outX, outY); break;  // Default parameters
+                case 70: variation_polar2(tx, ty, weight, outX, outY); break;
+                case 71: variation_popcorn2(tx, ty, weight, 0.1f, 0.1f, 3.0f, outX, outY); break;  // Default parameters
+                case 72: variation_scry(tx, ty, weight, outX, outY); break;
+                case 73: variation_separation(tx, ty, weight, 1.0f, 1.0f, 0.0f, 0.0f, outX, outY); break;  // Default parameters
+                case 74: variation_split(tx, ty, weight, 1.0f, 1.0f, outX, outY); break;  // Default parameters
+                case 75: variation_splits(tx, ty, weight, 0.5f, 0.5f, outX, outY); break;  // Default parameters
                 default: variation_linear(tx, ty, weight, outX, outY); break;
             }
         }
