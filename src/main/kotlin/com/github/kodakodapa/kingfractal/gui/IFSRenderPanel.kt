@@ -5,6 +5,7 @@ import com.github.kodakodapa.kingfractal.colors.ARGBPaletteRegistry
 import com.github.kodakodapa.kingfractal.ifs.IFSRenderer
 import com.github.kodakodapa.kingfractal.utils.SierpinskiTriangleParams
 import com.github.kodakodapa.kingfractal.utils.FractalFlameParams
+import com.github.kodakodapa.kingfractal.utils.FlameVariationType
 import com.github.kodakodapa.kingfractal.utils.FractalKernels
 import java.awt.*
 import java.awt.image.BufferedImage
@@ -39,6 +40,10 @@ class IFSRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) : JP
     private val gammaSpinner = JSpinner(SpinnerNumberModel(2.2, 0.1, 5.0, 0.1))
     private val brightnessSpinner = JSpinner(SpinnerNumberModel(1.0, 0.1, 3.0, 0.1))
     private val contrastSpinner = JSpinner(SpinnerNumberModel(1.0, 0.1, 3.0, 0.1))
+    private val variation1Combo = JComboBox<FlameVariationType>()
+    private val variation2Combo = JComboBox<FlameVariationType>()
+    private val varWeight1Spinner = JSpinner(SpinnerNumberModel(1.0, 0.1, 5.0, 0.1))
+    private val varWeight2Spinner = JSpinner(SpinnerNumberModel(1.0, 0.1, 5.0, 0.1))
     private val flameParamsPanel = JPanel()
 
     // Rendering controls
@@ -55,6 +60,7 @@ class IFSRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) : JP
     init {
         setupUI()
         loadPalettes()
+        setupVariations()
         setupEventHandlers()
     }
 
@@ -209,6 +215,30 @@ class IFSRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) : JP
         gbc.gridx = 3
         panel.add(contrastSpinner, gbc)
 
+        // Variation 1
+        gbc.gridx = 0; gbc.gridy = 2
+        panel.add(JLabel("Variation 1:"), gbc)
+        gbc.gridx = 1
+        panel.add(variation1Combo, gbc)
+
+        // Variation 1 Weight
+        gbc.gridx = 2; gbc.gridy = 2
+        panel.add(JLabel("Weight 1:"), gbc)
+        gbc.gridx = 3
+        panel.add(varWeight1Spinner, gbc)
+
+        // Variation 2
+        gbc.gridx = 0; gbc.gridy = 3
+        panel.add(JLabel("Variation 2:"), gbc)
+        gbc.gridx = 1
+        panel.add(variation2Combo, gbc)
+
+        // Variation 2 Weight
+        gbc.gridx = 2; gbc.gridy = 3
+        panel.add(JLabel("Weight 2:"), gbc)
+        gbc.gridx = 3
+        panel.add(varWeight2Spinner, gbc)
+
         return panel
     }
 
@@ -255,6 +285,18 @@ class IFSRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) : JP
         }
     }
 
+    private fun setupVariations() {
+        // Populate variation combo boxes
+        FlameVariationType.values().forEach {
+            variation1Combo.addItem(it)
+            variation2Combo.addItem(it)
+        }
+
+        // Set default selections
+        variation1Combo.selectedItem = FlameVariationType.LINEAR
+        variation2Combo.selectedItem = FlameVariationType.SINUSOIDAL
+    }
+
     private fun setupEventHandlers() {
         ifsTypeCombo.addActionListener { onIFSTypeChanged() }
         renderButton.addActionListener { onRenderClicked() }
@@ -283,6 +325,10 @@ class IFSRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) : JP
                 gammaSpinner.value = 2.2
                 brightnessSpinner.value = 1.0
                 contrastSpinner.value = 1.0
+                variation1Combo.selectedItem = FlameVariationType.LINEAR
+                variation2Combo.selectedItem = FlameVariationType.SINUSOIDAL
+                varWeight1Spinner.value = 1.0
+                varWeight2Spinner.value = 1.0
             }
         }
 
@@ -355,6 +401,11 @@ class IFSRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) : JP
                 val brightness = (brightnessSpinner.value as Double).toFloat()
                 val contrast = (contrastSpinner.value as Double).toFloat()
 
+                val variation1 = (variation1Combo.selectedItem as FlameVariationType).id
+                val variation2 = (variation2Combo.selectedItem as FlameVariationType).id
+                val varWeight1 = (varWeight1Spinner.value as Double).toFloat()
+                val varWeight2 = (varWeight2Spinner.value as Double).toFloat()
+
                 val params = FractalFlameParams(
                     zoom = zoom,
                     centerX = centerX,
@@ -363,7 +414,11 @@ class IFSRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) : JP
                     samples = samples,
                     gamma = gamma,
                     brightness = brightness,
-                    contrast = contrast
+                    contrast = contrast,
+                    variation1 = variation1,
+                    variation2 = variation2,
+                    varWeight1 = varWeight1,
+                    varWeight2 = varWeight2
                 )
                 val result = fractalFlameRenderer!!.renderFractal(width, height, params)
                 result.toBufferedImage(palette, useHistogramEqualization)
@@ -409,6 +464,10 @@ class IFSRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) : JP
                 gammaSpinner.value = 2.2
                 brightnessSpinner.value = 1.0
                 contrastSpinner.value = 1.0
+                variation1Combo.selectedItem = FlameVariationType.LINEAR
+                variation2Combo.selectedItem = FlameVariationType.SINUSOIDAL
+                varWeight1Spinner.value = 1.0
+                varWeight2Spinner.value = 1.0
             }
         }
 
