@@ -451,6 +451,171 @@ object FractalKernels {
             *outY = weight * cosa * r;
         }
 
+        void variation_eyefish(float tx, float ty, float weight, float* outX, float* outY) {
+            float r = sqrt(tx * tx + ty * ty);
+            r = (weight * 2.0f) / (r + 1.0f);
+
+            *outX = r * tx;
+            *outY = r * ty;
+        }
+
+        void variation_bubble(float tx, float ty, float weight, float* outX, float* outY) {
+            float sumsq = tx * tx + ty * ty;
+            float r = weight / (0.25f * sumsq + 1.0f);
+
+            *outX = r * tx;
+            *outY = r * ty;
+        }
+
+        void variation_cylinder(float tx, float ty, float weight, float* outX, float* outY) {
+            *outX = weight * sin(tx);
+            *outY = weight * ty;
+        }
+
+        void variation_perspective(float tx, float ty, float weight, float perspective_dist, float perspective_angle, float* outX, float* outY) {
+            float vfcos = cos(perspective_angle);
+            float vsin = sin(perspective_angle);
+            float t = 1.0f / (perspective_dist - ty * vsin);
+
+            *outX = weight * perspective_dist * tx * t;
+            *outY = weight * vfcos * ty * t;
+        }
+
+        void variation_noise(float tx, float ty, float weight, uint* seed, float* outX, float* outY) {
+            // Generate two random numbers
+            *seed = *seed * 1664525 + 1013904223;
+            float tmpr = ((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF) * 2.0f * M_PI;
+
+            *seed = *seed * 1664525 + 1013904223;
+            float r = weight * ((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF);
+
+            *outX = tx * r * cos(tmpr);
+            *outY = ty * r * sin(tmpr);
+        }
+
+        void variation_julian(float tx, float ty, float weight, float julian_power, float julian_dist, uint* seed, float* outX, float* outY) {
+            float r = sqrt(tx * tx + ty * ty);
+            float theta = atan2(ty, tx);
+
+            // Random integer for branch selection
+            *seed = *seed * 1664525 + 1013904223;
+            int t_rnd = (int)(((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF) * julian_power);
+
+            float tmpr = (theta + 2.0f * M_PI * t_rnd) / julian_power;
+            float rr = weight * pow(r * r, julian_dist);
+
+            *outX = rr * cos(tmpr);
+            *outY = rr * sin(tmpr);
+        }
+
+        void variation_juliascope(float tx, float ty, float weight, float juliascope_power, float juliascope_dist, uint* seed, float* outX, float* outY) {
+            float r = sqrt(tx * tx + ty * ty);
+            float theta = atan2(ty, tx);
+
+            // Random integer for branch selection
+            *seed = *seed * 1664525 + 1013904223;
+            int t_rnd = (int)(((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF) * juliascope_power);
+
+            float tmpr;
+            if ((t_rnd & 1) == 0) {
+                tmpr = (2.0f * M_PI * t_rnd + theta) / juliascope_power;
+            } else {
+                tmpr = (2.0f * M_PI * t_rnd - theta) / juliascope_power;
+            }
+
+            float rr = weight * pow(r * r, juliascope_dist);
+
+            *outX = rr * cos(tmpr);
+            *outY = rr * sin(tmpr);
+        }
+
+        void variation_blur(float tx, float ty, float weight, uint* seed, float* outX, float* outY) {
+            // Generate random angle
+            *seed = *seed * 1664525 + 1013904223;
+            float tmpr = ((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF) * 2.0f * M_PI;
+
+            // Generate random radius
+            *seed = *seed * 1664525 + 1013904223;
+            float r = weight * ((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF);
+
+            *outX = r * cos(tmpr);
+            *outY = r * sin(tmpr);
+        }
+
+        void variation_gaussian_blur(float tx, float ty, float weight, uint* seed, float* outX, float* outY) {
+            // Generate random angle
+            *seed = *seed * 1664525 + 1013904223;
+            float ang = ((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF) * 2.0f * M_PI;
+
+            // Generate Gaussian-distributed radius using sum of 4 uniform random numbers
+            float r = 0.0f;
+            for (int i = 0; i < 4; i++) {
+                *seed = *seed * 1664525 + 1013904223;
+                r += ((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF);
+            }
+            r = weight * (r - 2.0f);
+
+            *outX = r * cos(ang);
+            *outY = r * sin(ang);
+        }
+
+        void variation_radial_blur(float tx, float ty, float weight, float radial_blur_angle, uint* seed, float* outX, float* outY) {
+            float r = sqrt(tx * tx + ty * ty);
+            float theta = atan2(ty, tx);
+
+            // Generate Gaussian-distributed random number
+            float rndG = 0.0f;
+            for (int i = 0; i < 4; i++) {
+                *seed = *seed * 1664525 + 1013904223;
+                rndG += ((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF);
+            }
+            rndG = weight * (rndG - 2.0f);
+
+            float tmpa = theta + radial_blur_angle * rndG;
+            float rz = 0.3f * rndG - 1.0f;  // Default zoom factor
+
+            *outX = r * cos(tmpa) + rz * tx;
+            *outY = r * sin(tmpa) + rz * ty;
+        }
+
+        void variation_pie(float tx, float ty, float weight, float pie_slices, float pie_rotation, float pie_thickness, uint* seed, float* outX, float* outY) {
+            // Random slice selection
+            *seed = *seed * 1664525 + 1013904223;
+            int sl = (int)(((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF) * pie_slices + 0.5f);
+
+            // Random thickness
+            *seed = *seed * 1664525 + 1013904223;
+            float rand_thick = ((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF);
+
+            float a = pie_rotation + 2.0f * M_PI * (sl + rand_thick * pie_thickness) / pie_slices;
+
+            // Random radius
+            *seed = *seed * 1664525 + 1013904223;
+            float r = weight * ((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF);
+
+            *outX = r * cos(a);
+            *outY = r * sin(a);
+        }
+
+        void variation_ngon(float tx, float ty, float weight, float ngon_power, float ngon_sides, float ngon_corners, float ngon_circle, float* outX, float* outY) {
+            float sumsq = tx * tx + ty * ty;
+            float r_factor = pow(sumsq, ngon_power / 2.0f);
+
+            float theta = atan2(ty, tx);
+            float b = 2.0f * M_PI / ngon_sides;
+
+            float phi = theta - (b * floor(theta / b));
+            if (phi > b / 2.0f) {
+                phi -= b;
+            }
+
+            float amp = ngon_corners * (1.0f / (cos(phi) + 1e-6f) - 1.0f) + ngon_circle;
+            amp /= (r_factor + 1e-6f);
+
+            *outX = weight * tx * amp;
+            *outY = weight * ty * amp;
+        }
+
         // Apply variation based on type
         void apply_variation(int variationType, float tx, float ty, float weight, float* outX, float* outY, uint* seed) {
             switch(variationType) {
@@ -481,6 +646,18 @@ object FractalKernels {
                 case 24: variation_pdj(tx, ty, weight, 1.0f, 1.0f, 1.0f, 1.0f, outX, outY); break;  // Default parameters
                 case 25: variation_fan2(tx, ty, weight, 0.5f, 0.3f, outX, outY); break;  // Default parameters
                 case 26: variation_rings2(tx, ty, weight, 0.5f, outX, outY); break;  // Default parameter
+                case 27: variation_eyefish(tx, ty, weight, outX, outY); break;
+                case 28: variation_bubble(tx, ty, weight, outX, outY); break;
+                case 29: variation_cylinder(tx, ty, weight, outX, outY); break;
+                case 30: variation_perspective(tx, ty, weight, 2.0f, 0.5f, outX, outY); break;  // Default parameters
+                case 31: variation_noise(tx, ty, weight, seed, outX, outY); break;
+                case 32: variation_julian(tx, ty, weight, 2.0f, 0.5f, seed, outX, outY); break;  // Default parameters
+                case 33: variation_juliascope(tx, ty, weight, 2.0f, 0.5f, seed, outX, outY); break;  // Default parameters
+                case 34: variation_blur(tx, ty, weight, seed, outX, outY); break;
+                case 35: variation_gaussian_blur(tx, ty, weight, seed, outX, outY); break;
+                case 36: variation_radial_blur(tx, ty, weight, 0.5f, seed, outX, outY); break;  // Default parameter
+                case 37: variation_pie(tx, ty, weight, 6.0f, 0.0f, 0.5f, seed, outX, outY); break;  // Default parameters
+                case 38: variation_ngon(tx, ty, weight, 2.0f, 5.0f, 1.0f, 1.0f, outX, outY); break;  // Default parameters
                 default: variation_linear(tx, ty, weight, outX, outY); break;
             }
         }
