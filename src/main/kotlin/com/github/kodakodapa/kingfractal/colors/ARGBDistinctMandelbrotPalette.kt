@@ -13,7 +13,7 @@ class ARGBDistinctMandelbrotPalette : ARGBPalette {
 
     companion object {
         private const val PALETTE_SIZE = 1000
-        private const val GOLDEN_RATIO = 0.618033988749f
+        private const val GOLDEN_RATIO = 0.618034f
         private const val HUE_STEP = GOLDEN_RATIO * 360f
 
         // Pre-computed color table for maximum performance
@@ -93,16 +93,6 @@ class ARGBDistinctMandelbrotPalette : ARGBPalette {
             return intArrayOf(r, g, b)
         }
 
-        /**
-         * Calculates perceptual color distance using weighted Euclidean distance
-         */
-        private fun colorDistance(r1: Int, g1: Int, b1: Int, r2: Int, g2: Int, b2: Int): Double {
-            // Use weighted distance that approximates human color perception
-            val dr = (r1 - r2) * 0.3
-            val dg = (g1 - g2) * 0.59  // Green is most perceptually important
-            val db = (b1 - b2) * 0.11
-            return sqrt(dr * dr + dg * dg + db * db)
-        }
 
         /**
          * Converts HSV to RGB with proper handling of edge cases
