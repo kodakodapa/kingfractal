@@ -1161,6 +1161,170 @@ object FractalKernels {
             }
         }
 
+        void variation_stripes(float tx, float ty, float weight, float stripes_space, float stripes_warp, float* outX, float* outY) {
+            float roundx = floor(tx + 0.5f);
+            float offsetx = tx - roundx;
+
+            *outX = weight * (offsetx * (1.0f - stripes_space) + roundx);
+            *outY = weight * (ty + offsetx * offsetx * stripes_warp);
+        }
+
+        void variation_wedge(float tx, float ty, float weight, float wedge_angle, float wedge_hole, float wedge_count, float wedge_swirl, float* outX, float* outY) {
+            float r = sqrt(tx * tx + ty * ty);
+            float theta = atan2(ty, tx);
+            float a = theta + wedge_swirl * r;
+            float c = floor((wedge_count * a + M_PI) / M_PI * 0.5f);
+
+            float comp_fac = 1.0f - wedge_angle * wedge_count / M_PI * 0.5f;
+            a = a * comp_fac + c * wedge_angle;
+
+            r = weight * (r + wedge_hole);
+
+            *outX = r * cos(a);
+            *outY = r * sin(a);
+        }
+
+        void variation_wedge_julia(float tx, float ty, float weight, float wedge_julia_angle, float wedge_julia_count, float wedge_julia_power, float wedge_julia_dist, float wedge_julia_cf, uint* seed, float* outX, float* outY) {
+            float sumsq = tx * tx + ty * ty;
+            float r = weight * pow(sumsq, wedge_julia_dist);
+            float theta = atan2(ty, tx);
+
+            *seed = *seed * 1664525 + 1013904223;
+            int t_rnd = (int)(((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF) * wedge_julia_power);
+
+            float a = (theta + 2.0f * M_PI * t_rnd) / wedge_julia_power;
+            float c = floor((wedge_julia_count * a + M_PI) / M_PI * 0.5f);
+
+            a = a * wedge_julia_cf + c * wedge_julia_angle;
+
+            *outX = r * cos(a);
+            *outY = r * sin(a);
+        }
+
+        void variation_wedge_sph(float tx, float ty, float weight, float wedge_sph_angle, float wedge_sph_hole, float wedge_sph_count, float wedge_sph_swirl, float* outX, float* outY) {
+            float sqrt_r = sqrt(tx * tx + ty * ty);
+            float r = 1.0f / (sqrt_r + 1e-6f);
+            float theta = atan2(ty, tx);
+            float a = theta + wedge_sph_swirl * r;
+            float c = floor((wedge_sph_count * a + M_PI) / M_PI * 0.5f);
+
+            float comp_fac = 1.0f - wedge_sph_angle * wedge_sph_count / M_PI * 0.5f;
+            a = a * comp_fac + c * wedge_sph_angle;
+
+            r = weight * (r + wedge_sph_hole);
+
+            *outX = r * cos(a);
+            *outY = r * sin(a);
+        }
+
+        void variation_whorl(float tx, float ty, float weight, float whorl_inside, float whorl_outside, float* outX, float* outY) {
+            float r = sqrt(tx * tx + ty * ty);
+            float theta = atan2(ty, tx);
+            float a;
+
+            if (r < weight) {
+                a = theta + whorl_inside / (weight - r);
+            } else {
+                a = theta + whorl_outside / (weight - r);
+            }
+
+            *outX = weight * r * cos(a);
+            *outY = weight * r * sin(a);
+        }
+
+        void variation_waves2(float tx, float ty, float weight, float waves2_scalex, float waves2_scaley, float waves2_freqx, float waves2_freqy, float* outX, float* outY) {
+            *outX = weight * (tx + waves2_scalex * sin(ty * waves2_freqx));
+            *outY = weight * (ty + waves2_scaley * sin(tx * waves2_freqy));
+        }
+
+        void variation_exp(float tx, float ty, float weight, float* outX, float* outY) {
+            float expe = exp(tx);
+
+            *outX = weight * expe * cos(ty);
+            *outY = weight * expe * sin(ty);
+        }
+
+        void variation_log(float tx, float ty, float weight, float* outX, float* outY) {
+            float sumsq = tx * tx + ty * ty;
+
+            *outX = weight * 0.5f * log(sumsq);
+            *outY = weight * atan2(ty, tx);
+        }
+
+        void variation_sin(float tx, float ty, float weight, float* outX, float* outY) {
+            float sinsin = sin(tx);
+            float sincos = cos(tx);
+            float sinsinh = sinh(ty);
+            float sincosh = cosh(ty);
+
+            *outX = weight * sinsin * sincosh;
+            *outY = weight * sincos * sinsinh;
+        }
+
+        void variation_cos(float tx, float ty, float weight, float* outX, float* outY) {
+            float cossin = sin(tx);
+            float coscos = cos(tx);
+            float cossinh = sinh(ty);
+            float coscosh = cosh(ty);
+
+            *outX = weight * coscos * coscosh;
+            *outY = -weight * cossin * cossinh;
+        }
+
+        void variation_tan(float tx, float ty, float weight, float* outX, float* outY) {
+            float tansin = sin(2.0f * tx);
+            float tancos = cos(2.0f * tx);
+            float tansinh = sinh(2.0f * ty);
+            float tancosh = cosh(2.0f * ty);
+            float tanden = 1.0f / (tancos + tancosh);
+
+            *outX = weight * tanden * tansin;
+            *outY = weight * tanden * tansinh;
+        }
+
+        void variation_sec(float tx, float ty, float weight, float* outX, float* outY) {
+            float secsin = sin(tx);
+            float seccos = cos(tx);
+            float secsinh = sinh(ty);
+            float seccosh = cosh(ty);
+            float secden = 2.0f / (cos(2.0f * tx) + cosh(2.0f * ty));
+
+            *outX = weight * secden * seccos * seccosh;
+            *outY = weight * secden * secsin * secsinh;
+        }
+
+        void variation_csc(float tx, float ty, float weight, float* outX, float* outY) {
+            float cscsin = sin(tx);
+            float csccos = cos(tx);
+            float cscsinh = sinh(ty);
+            float csccosh = cosh(ty);
+            float cscden = 2.0f / (cosh(2.0f * ty) - cos(2.0f * tx));
+
+            *outX = weight * cscden * cscsin * csccosh;
+            *outY = -weight * cscden * csccos * cscsinh;
+        }
+
+        void variation_cot(float tx, float ty, float weight, float* outX, float* outY) {
+            float cotsin = sin(2.0f * tx);
+            float cotcos = cos(2.0f * tx);
+            float cotsinh = sinh(2.0f * ty);
+            float cotcosh = cosh(2.0f * ty);
+            float cotden = 1.0f / (cotcosh - cotcos);
+
+            *outX = weight * cotden * cotsin;
+            *outY = weight * cotden * (-1.0f) * cotsinh;
+        }
+
+        void variation_sinh(float tx, float ty, float weight, float* outX, float* outY) {
+            float sinhsin = sin(ty);
+            float sinhcos = cos(ty);
+            float sinhsinh = sinh(tx);
+            float sinhcosh = cosh(tx);
+
+            *outX = weight * sinhsinh * sinhcos;
+            *outY = weight * sinhcosh * sinhsin;
+        }
+
         // Apply variation based on type
         void apply_variation(int variationType, float tx, float ty, float weight, float* outX, float* outY, uint* seed) {
             switch(variationType) {
@@ -1240,6 +1404,21 @@ object FractalKernels {
                 case 73: variation_separation(tx, ty, weight, 1.0f, 1.0f, 0.0f, 0.0f, outX, outY); break;  // Default parameters
                 case 74: variation_split(tx, ty, weight, 1.0f, 1.0f, outX, outY); break;  // Default parameters
                 case 75: variation_splits(tx, ty, weight, 0.5f, 0.5f, outX, outY); break;  // Default parameters
+                case 76: variation_stripes(tx, ty, weight, 0.5f, 0.0f, outX, outY); break;  // Default parameters
+                case 77: variation_wedge(tx, ty, weight, 0.5f, 0.0f, 1.0f, 0.0f, outX, outY); break;  // Default parameters
+                case 78: variation_wedge_julia(tx, ty, weight, 0.5f, 1.0f, 2.0f, 0.5f, 1.0f, seed, outX, outY); break;  // Default parameters
+                case 79: variation_wedge_sph(tx, ty, weight, 0.5f, 0.0f, 1.0f, 0.0f, outX, outY); break;  // Default parameters
+                case 80: variation_whorl(tx, ty, weight, 0.5f, 0.5f, outX, outY); break;  // Default parameters
+                case 81: variation_waves2(tx, ty, weight, 0.1f, 0.1f, 1.0f, 1.0f, outX, outY); break;  // Default parameters
+                case 82: variation_exp(tx, ty, weight, outX, outY); break;
+                case 83: variation_log(tx, ty, weight, outX, outY); break;
+                case 84: variation_sin(tx, ty, weight, outX, outY); break;
+                case 85: variation_cos(tx, ty, weight, outX, outY); break;
+                case 86: variation_tan(tx, ty, weight, outX, outY); break;
+                case 87: variation_sec(tx, ty, weight, outX, outY); break;
+                case 88: variation_csc(tx, ty, weight, outX, outY); break;
+                case 89: variation_cot(tx, ty, weight, outX, outY); break;
+                case 90: variation_sinh(tx, ty, weight, outX, outY); break;
                 default: variation_linear(tx, ty, weight, outX, outY); break;
             }
         }
