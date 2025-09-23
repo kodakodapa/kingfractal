@@ -1325,6 +1325,92 @@ object FractalKernels {
             *outY = weight * sinhcosh * sinhsin;
         }
 
+        void variation_cosh(float tx, float ty, float weight, float* outX, float* outY) {
+            float coshsin = sin(ty);
+            float coshcos = cos(ty);
+            float coshsinh = sinh(tx);
+            float coshcosh = cosh(tx);
+
+            *outX = weight * coshcosh * coshcos;
+            *outY = weight * coshsinh * coshsin;
+        }
+
+        void variation_tanh(float tx, float ty, float weight, float* outX, float* outY) {
+            float tanhsin = sin(2.0f * ty);
+            float tanhcos = cos(2.0f * ty);
+            float tanhsinh = sinh(2.0f * tx);
+            float tanhcosh = cosh(2.0f * tx);
+            float tanhden = 1.0f / (tanhcos + tanhcosh);
+
+            *outX = weight * tanhden * tanhsinh;
+            *outY = weight * tanhden * tanhsin;
+        }
+
+        void variation_sech(float tx, float ty, float weight, float* outX, float* outY) {
+            float sechsin = sin(ty);
+            float sechcos = cos(ty);
+            float sechsinh = sinh(tx);
+            float sechcosh = cosh(tx);
+            float sechden = 2.0f / (cos(2.0f * ty) + cosh(2.0f * tx));
+
+            *outX = weight * sechden * sechcos * sechcosh;
+            *outY = -weight * sechden * sechsin * sechsinh;
+        }
+
+        void variation_csch(float tx, float ty, float weight, float* outX, float* outY) {
+            float cschsin = sin(ty);
+            float cschcos = cos(ty);
+            float cschsinh = sinh(tx);
+            float cschcosh = cosh(tx);
+            float cschden = 2.0f / (cosh(2.0f * tx) - cos(2.0f * ty));
+
+            *outX = weight * cschden * cschsinh * cschcos;
+            *outY = -weight * cschden * cschcosh * cschsin;
+        }
+
+        void variation_coth(float tx, float ty, float weight, float* outX, float* outY) {
+            float cothsin = sin(2.0f * ty);
+            float cothcos = cos(2.0f * ty);
+            float cothsinh = sinh(2.0f * tx);
+            float cothcosh = cosh(2.0f * tx);
+            float cothden = 1.0f / (cothcosh - cothcos);
+
+            *outX = weight * cothden * cothsinh;
+            *outY = weight * cothden * cothsin;
+        }
+
+        void variation_auger(float tx, float ty, float weight, float auger_freq, float auger_weight, float auger_scale, float auger_sym, float* outX, float* outY) {
+            float s = sin(auger_freq * tx);
+            float t = sin(auger_freq * ty);
+            float dy = ty + auger_weight * (auger_scale * s / 2.0f + fabs(ty) * s);
+            float dx = tx + auger_weight * (auger_scale * t / 2.0f + fabs(tx) * t);
+
+            *outX = weight * (tx + auger_sym * (dx - tx));
+            *outY = weight * dy;
+        }
+
+        void variation_flux(float tx, float ty, float weight, float flux_spread, float* outX, float* outY) {
+            float xpw = tx + weight;
+            float xmw = tx - weight;
+            float avgr = weight * (2.0f + flux_spread) * sqrt(sqrt(ty * ty + xpw * xpw) / sqrt(ty * ty + xmw * xmw));
+            float avga = (atan2(ty, xmw) - atan2(ty, xpw)) * 0.5f;
+
+            *outX = avgr * cos(avga);
+            *outY = avgr * sin(avga);
+        }
+
+        void variation_mobius(float tx, float ty, float weight, float mobius_re_a, float mobius_im_a, float mobius_re_b, float mobius_im_b, float mobius_re_c, float mobius_im_c, float mobius_re_d, float mobius_im_d, float* outX, float* outY) {
+            float re_u = mobius_re_a * tx - mobius_im_a * ty + mobius_re_b;
+            float im_u = mobius_re_a * ty + mobius_im_a * tx + mobius_im_b;
+            float re_v = mobius_re_c * tx - mobius_im_c * ty + mobius_re_d;
+            float im_v = mobius_re_c * ty + mobius_im_c * tx + mobius_im_d;
+
+            float rad_v = weight / (re_v * re_v + im_v * im_v);
+
+            *outX = rad_v * (re_u * re_v + im_u * im_v);
+            *outY = rad_v * (im_u * re_v - re_u * im_v);
+        }
+
         // Apply variation based on type
         void apply_variation(int variationType, float tx, float ty, float weight, float* outX, float* outY, uint* seed) {
             switch(variationType) {
@@ -1419,6 +1505,14 @@ object FractalKernels {
                 case 88: variation_csc(tx, ty, weight, outX, outY); break;
                 case 89: variation_cot(tx, ty, weight, outX, outY); break;
                 case 90: variation_sinh(tx, ty, weight, outX, outY); break;
+                case 91: variation_cosh(tx, ty, weight, outX, outY); break;
+                case 92: variation_tanh(tx, ty, weight, outX, outY); break;
+                case 93: variation_sech(tx, ty, weight, outX, outY); break;
+                case 94: variation_csch(tx, ty, weight, outX, outY); break;
+                case 95: variation_coth(tx, ty, weight, outX, outY); break;
+                case 96: variation_auger(tx, ty, weight, 1.0f, 0.5f, 0.1f, 0.0f, outX, outY); break;  // Default parameters
+                case 97: variation_flux(tx, ty, weight, 0.5f, outX, outY); break;  // Default parameter
+                case 98: variation_mobius(tx, ty, weight, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, outX, outY); break;  // Default parameters
                 default: variation_linear(tx, ty, weight, outX, outY); break;
             }
         }
