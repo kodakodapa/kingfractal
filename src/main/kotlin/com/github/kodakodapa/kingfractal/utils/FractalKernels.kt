@@ -766,6 +766,243 @@ object FractalKernels {
             *outY = rr * ty;
         }
 
+        void variation_conic(float tx, float ty, float weight, float conic_eccentricity, float conic_holes, uint* seed, float* outX, float* outY) {
+            float r = sqrt(tx * tx + ty * ty);
+            float ct = tx / r;
+
+            *seed = *seed * 1664525 + 1013904223;
+            float rand_val = ((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF);
+
+            float rr = weight * (rand_val - conic_holes) * conic_eccentricity / (1.0f + conic_eccentricity * ct) / r;
+
+            *outX = rr * tx;
+            *outY = rr * ty;
+        }
+
+        void variation_parabola(float tx, float ty, float weight, float parabola_height, float parabola_width, uint* seed, float* outX, float* outY) {
+            float r = sqrt(tx * tx + ty * ty);
+
+            *seed = *seed * 1664525 + 1013904223;
+            float rand1 = ((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF);
+
+            *seed = *seed * 1664525 + 1013904223;
+            float rand2 = ((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF);
+
+            *outX = parabola_height * weight * sin(r) * sin(r) * rand1;
+            *outY = parabola_width * weight * cos(r) * rand2;
+        }
+
+        void variation_bent2(float tx, float ty, float weight, float bent2_x, float bent2_y, float* outX, float* outY) {
+            float nx = tx;
+            float ny = ty;
+
+            if (nx < 0.0f) nx = nx * bent2_x;
+            if (ny < 0.0f) ny = ny * bent2_y;
+
+            *outX = weight * nx;
+            *outY = weight * ny;
+        }
+
+        void variation_bipolar(float tx, float ty, float weight, float bipolar_shift, float* outX, float* outY) {
+            float x2y2 = tx * tx + ty * ty;
+            float t = x2y2 + 1.0f;
+            float x2 = 2.0f * tx;
+            float ps = -M_PI_2 * bipolar_shift;
+            float y = 0.5f * atan2(2.0f * ty, x2y2 - 1.0f) + ps;
+
+            if (y > M_PI_2) {
+                y = -M_PI_2 + fmod(y + M_PI_2, M_PI);
+            } else if (y < -M_PI_2) {
+                y = M_PI_2 - fmod(M_PI_2 - y, M_PI);
+            }
+
+            *outX = weight * 0.25f * M_2_PI * log((t + x2) / (t - x2));
+            *outY = weight * M_2_PI * y;
+        }
+
+        void variation_boarders(float tx, float ty, float weight, uint* seed, float* outX, float* outY) {
+            float roundX = rint(tx);
+            float roundY = rint(ty);
+            float offsetX = tx - roundX;
+            float offsetY = ty - roundY;
+
+            *seed = *seed * 1664525 + 1013904223;
+            float rand_val = ((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF);
+
+            if (rand_val >= 0.75f) {
+                *outX = weight * (offsetX * 0.5f + roundX);
+                *outY = weight * (offsetY * 0.5f + roundY);
+            } else {
+                if (fabs(offsetX) >= fabs(offsetY)) {
+                    if (offsetX >= 0.0f) {
+                        *outX = weight * (offsetX * 0.5f + roundX + 0.25f);
+                        *outY = weight * (offsetY * 0.5f + roundY + 0.25f * offsetY / offsetX);
+                    } else {
+                        *outX = weight * (offsetX * 0.5f + roundX - 0.25f);
+                        *outY = weight * (offsetY * 0.5f + roundY - 0.25f * offsetY / offsetX);
+                    }
+                } else {
+                    if (offsetY >= 0.0f) {
+                        *outY = weight * (offsetY * 0.5f + roundY + 0.25f);
+                        *outX = weight * (offsetX * 0.5f + roundX + offsetX / offsetY * 0.25f);
+                    } else {
+                        *outY = weight * (offsetY * 0.5f + roundY - 0.25f);
+                        *outX = weight * (offsetX * 0.5f + roundX - offsetX / offsetY * 0.25f);
+                    }
+                }
+            }
+        }
+
+        void variation_butterfly(float tx, float ty, float weight, float* outX, float* outY) {
+            float wx = weight * 1.3029400317411197908970256609023f;
+            float y2 = ty * 2.0f;
+            float r = wx * sqrt(fabs(ty * tx) / (1e-6f + tx * tx + y2 * y2));
+
+            *outX = r * tx;
+            *outY = r * y2;
+        }
+
+        void variation_cell(float tx, float ty, float weight, float cell_size, float* outX, float* outY) {
+            float inv_cell_size = 1.0f / cell_size;
+
+            int x = (int)floor(tx * inv_cell_size);
+            int y = (int)floor(ty * inv_cell_size);
+
+            float dx = tx - x * cell_size;
+            float dy = ty - y * cell_size;
+
+            // Interleave cells
+            if (y >= 0) {
+                if (x >= 0) {
+                    y *= 2;
+                    x *= 2;
+                } else {
+                    y *= 2;
+                    x = -(2 * x + 1);
+                }
+            } else {
+                if (x >= 0) {
+                    y = -(2 * y + 1);
+                    x *= 2;
+                } else {
+                    y = -(2 * y + 1);
+                    x = -(2 * x + 1);
+                }
+            }
+
+            *outX = weight * (dx + x * cell_size);
+            *outY = -weight * (dy + y * cell_size);
+        }
+
+        void variation_cpow(float tx, float ty, float weight, float cpow_r, float cpow_i, float cpow_power, uint* seed, float* outX, float* outY) {
+            float a = atan2(ty, tx);
+            float lnr = 0.5f * log(tx * tx + ty * ty);
+            float va = 2.0f * M_PI / cpow_power;
+            float vc = cpow_r / cpow_power;
+            float vd = cpow_i / cpow_power;
+
+            *seed = *seed * 1664525 + 1013904223;
+            float rand_val = ((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF);
+
+            float ang = vc * a + vd * lnr + va * floor(cpow_power * rand_val);
+            float m = weight * exp(vc * lnr - vd * a);
+
+            *outX = m * cos(ang);
+            *outY = m * sin(ang);
+        }
+
+        void variation_curve(float tx, float ty, float weight, float curve_xamp, float curve_yamp, float curve_xlength, float curve_ylength, float* outX, float* outY) {
+            float pc_xlen = curve_xlength * curve_xlength;
+            float pc_ylen = curve_ylength * curve_ylength;
+
+            if (pc_xlen < 1e-20f) pc_xlen = 1e-20f;
+            if (pc_ylen < 1e-20f) pc_ylen = 1e-20f;
+
+            *outX = weight * (tx + curve_xamp * exp(-ty * ty / pc_xlen));
+            *outY = weight * (ty + curve_yamp * exp(-tx * tx / pc_ylen));
+        }
+
+        void variation_edisc(float tx, float ty, float weight, float* outX, float* outY) {
+            float sumsq = tx * tx + ty * ty;
+            float tmp = sumsq + 1.0f;
+            float tmp2 = 2.0f * tx;
+            float r1 = sqrt(tmp + tmp2);
+            float r2 = sqrt(tmp - tmp2);
+            float xmax = (r1 + r2) * 0.5f;
+            float a1 = log(xmax + sqrt(xmax - 1.0f));
+            float a2 = -acos(tx / xmax);
+            float w = weight / 11.57034632f;
+
+            float snv = sin(a1);
+            float csv = cos(a1);
+            float snhu = sinh(a2);
+            float cshu = cosh(a2);
+
+            if (ty > 0.0f) snv = -snv;
+
+            *outX = w * cshu * csv;
+            *outY = w * snhu * snv;
+        }
+
+        void variation_elliptic(float tx, float ty, float weight, float* outX, float* outY) {
+            float sumsq = tx * tx + ty * ty;
+            float tmp = sumsq + 1.0f;
+            float x2 = 2.0f * tx;
+            float xmax = 0.5f * (sqrt(tmp + x2) + sqrt(tmp - x2));
+            float a = tx / xmax;
+            float b = 1.0f - a * a;
+            float ssx = xmax - 1.0f;
+            float w = weight / M_PI_2;
+
+            if (b < 0.0f) {
+                b = 0.0f;
+            } else {
+                b = sqrt(b);
+            }
+
+            if (ssx < 0.0f) {
+                ssx = 0.0f;
+            } else {
+                ssx = sqrt(ssx);
+            }
+
+            *outX = w * atan2(a, b);
+
+            if (ty > 0.0f) {
+                *outY = w * log(xmax + ssx);
+            } else {
+                *outY = -w * log(xmax + ssx);
+            }
+        }
+
+        void variation_escher(float tx, float ty, float weight, float escher_beta, float* outX, float* outY) {
+            float a = atan2(ty, tx);
+            float lnr = 0.5f * log(tx * tx + ty * ty);
+
+            float seb = sin(escher_beta);
+            float ceb = cos(escher_beta);
+
+            float vc = 0.5f * (1.0f + ceb);
+            float vd = 0.5f * seb;
+
+            float m = weight * exp(vc * lnr - vd * a);
+            float n = vc * a + vd * lnr;
+
+            *outX = m * cos(n);
+            *outY = m * sin(n);
+        }
+
+        void variation_foci(float tx, float ty, float weight, float* outX, float* outY) {
+            float expx = exp(tx) * 0.5f;
+            float expnx = 0.25f / expx;
+            float sn = sin(ty);
+            float cn = cos(ty);
+            float tmp = weight / (expx + expnx - cn);
+
+            *outX = tmp * (expx - expnx);
+            *outY = tmp * sn;
+        }
+
         // Apply variation based on type
         void apply_variation(int variationType, float tx, float ty, float weight, float* outX, float* outY, uint* seed) {
             switch(variationType) {
@@ -821,6 +1058,19 @@ object FractalKernels {
                 case 49: variation_disc2(tx, ty, weight, 1.0f, 1.0f, outX, outY); break;  // Default parameters
                 case 50: variation_super_shape(tx, ty, weight, 4.0f, 1.0f, 1.0f, 1.0f, 0.5f, 0.0f, seed, outX, outY); break;  // Default parameters
                 case 51: variation_flower(tx, ty, weight, 4.0f, 0.3f, seed, outX, outY); break;  // Default parameters
+                case 52: variation_conic(tx, ty, weight, 1.0f, 0.0f, seed, outX, outY); break;  // Default parameters
+                case 53: variation_parabola(tx, ty, weight, 1.0f, 1.0f, seed, outX, outY); break;  // Default parameters
+                case 54: variation_bent2(tx, ty, weight, 1.0f, 1.0f, outX, outY); break;  // Default parameters
+                case 55: variation_bipolar(tx, ty, weight, 0.0f, outX, outY); break;  // Default parameter
+                case 56: variation_boarders(tx, ty, weight, seed, outX, outY); break;
+                case 57: variation_butterfly(tx, ty, weight, outX, outY); break;
+                case 58: variation_cell(tx, ty, weight, 1.0f, outX, outY); break;  // Default parameter
+                case 59: variation_cpow(tx, ty, weight, 1.0f, 0.0f, 2.0f, seed, outX, outY); break;  // Default parameters
+                case 60: variation_curve(tx, ty, weight, 0.2f, 0.2f, 1.0f, 1.0f, outX, outY); break;  // Default parameters
+                case 61: variation_edisc(tx, ty, weight, outX, outY); break;
+                case 62: variation_elliptic(tx, ty, weight, outX, outY); break;
+                case 63: variation_escher(tx, ty, weight, 0.4f, outX, outY); break;  // Default parameter
+                case 64: variation_foci(tx, ty, weight, outX, outY); break;
                 default: variation_linear(tx, ty, weight, outX, outY); break;
             }
         }
