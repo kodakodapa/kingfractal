@@ -9,6 +9,7 @@ gradle/**
 ### Misc ###
 ideas.txt
 *.png
+.claude
 
 ### IntelliJ IDEA ###
 .idea/modules.xml

@@ -866,6 +866,9 @@ object ARGBPaletteRegistry {
         register(ARGBIcePalette(false))
         register(ARGBIcePalette(true))
 
+        // Register specialized palettes
+        register(ARGBDistinctMandelbrotPalette())
+
         // Register gradient palettes
         register(ARGBGradientPalette("Red-Yellow", ARGBColor.RED, ARGBColor(255, 255, 255, 0)))
         register(ARGBGradientPalette("Purple-Pink",
