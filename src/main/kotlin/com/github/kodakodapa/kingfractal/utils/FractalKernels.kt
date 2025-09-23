@@ -616,6 +616,156 @@ object FractalKernels {
             *outY = weight * ty * amp;
         }
 
+        void variation_curl(float tx, float ty, float weight, float curl_c1, float curl_c2, float* outX, float* outY) {
+            float re = 1.0f + curl_c1 * tx + curl_c2 * (tx * tx - ty * ty);
+            float im = curl_c1 * ty + 2.0f * curl_c2 * tx * ty;
+
+            float r = weight / (re * re + im * im);
+
+            *outX = (tx * re + ty * im) * r;
+            *outY = (ty * re - tx * im) * r;
+        }
+
+        void variation_rectangles(float tx, float ty, float weight, float rect_x, float rect_y, float* outX, float* outY) {
+            if (rect_x == 0.0f) {
+                *outX = weight * tx;
+            } else {
+                *outX = weight * ((2.0f * floor(tx / rect_x) + 1.0f) * rect_x - tx);
+            }
+
+            if (rect_y == 0.0f) {
+                *outY = weight * ty;
+            } else {
+                *outY = weight * ((2.0f * floor(ty / rect_y) + 1.0f) * rect_y - ty);
+            }
+        }
+
+        void variation_arch(float tx, float ty, float weight, uint* seed, float* outX, float* outY) {
+            *seed = *seed * 1664525 + 1013904223;
+            float ang = ((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF) * weight * M_PI;
+
+            *outX = weight * sin(ang);
+            *outY = weight * (sin(ang) * sin(ang)) / cos(ang);
+        }
+
+        void variation_tangent(float tx, float ty, float weight, float* outX, float* outY) {
+            *outX = weight * sin(tx) / cos(ty);
+            *outY = weight * tan(ty);
+        }
+
+        void variation_square(float tx, float ty, float weight, uint* seed, float* outX, float* outY) {
+            *seed = *seed * 1664525 + 1013904223;
+            float rand1 = ((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF) - 0.5f;
+
+            *seed = *seed * 1664525 + 1013904223;
+            float rand2 = ((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF) - 0.5f;
+
+            *outX = weight * rand1;
+            *outY = weight * rand2;
+        }
+
+        void variation_rays(float tx, float ty, float weight, uint* seed, float* outX, float* outY) {
+            float sumsq = tx * tx + ty * ty;
+
+            *seed = *seed * 1664525 + 1013904223;
+            float ang = weight * ((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF) * M_PI;
+
+            float r = weight / (sumsq + 1e-6f);
+            float tanr = weight * tan(ang) * r;
+
+            *outX = tanr * cos(tx);
+            *outY = tanr * sin(ty);
+        }
+
+        void variation_blade(float tx, float ty, float weight, uint* seed, float* outX, float* outY) {
+            float sqrt_r = sqrt(tx * tx + ty * ty);
+
+            *seed = *seed * 1664525 + 1013904223;
+            float r = ((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF) * weight * sqrt_r;
+
+            *outX = weight * tx * (cos(r) + sin(r));
+            *outY = weight * tx * (cos(r) - sin(r));
+        }
+
+        void variation_secant2(float tx, float ty, float weight, float* outX, float* outY) {
+            float r = weight * sqrt(tx * tx + ty * ty);
+            float cr = cos(r);
+            float icr = 1.0f / cr;
+
+            *outX = weight * tx;
+
+            if (cr < 0.0f) {
+                *outY = weight * (icr + 1.0f);
+            } else {
+                *outY = weight * (icr - 1.0f);
+            }
+        }
+
+        void variation_twintrian(float tx, float ty, float weight, uint* seed, float* outX, float* outY) {
+            float sqrt_r = sqrt(tx * tx + ty * ty);
+
+            *seed = *seed * 1664525 + 1013904223;
+            float r = ((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF) * weight * sqrt_r;
+
+            float sinr = sin(r);
+            float cosr = cos(r);
+            float diff = log10(sinr * sinr) + cosr;
+
+            // Handle bad values (log of negative/zero)
+            if (isnan(diff) || isinf(diff)) {
+                diff = -30.0f;
+            }
+
+            *outX = weight * tx * diff;
+            *outY = weight * tx * (diff - sinr * M_PI);
+        }
+
+        void variation_cross(float tx, float ty, float weight, float* outX, float* outY) {
+            float s = tx * tx - ty * ty;
+            float r = weight * sqrt(1.0f / (s * s + 1e-6f));
+
+            *outX = tx * r;
+            *outY = ty * r;
+        }
+
+        void variation_disc2(float tx, float ty, float weight, float disc2_rot, float disc2_twist, float* outX, float* outY) {
+            float theta = atan2(ty, tx);
+            float t = disc2_twist * M_PI * (tx + ty);
+            float r = weight * theta / M_PI;
+
+            *outX = (sin(t) + disc2_rot) * r;
+            *outY = (cos(t) + disc2_twist) * r;
+        }
+
+        void variation_super_shape(float tx, float ty, float weight, float ss_m, float ss_n1, float ss_n2, float ss_n3, float ss_rnd, float ss_holes, uint* seed, float* outX, float* outY) {
+            float r = sqrt(tx * tx + ty * ty);
+            float theta = ss_m * atan2(ty, tx) / 4.0f + M_PI / 4.0f;
+
+            float t1 = pow(fabs(cos(theta)), ss_n2);
+            float t2 = pow(fabs(sin(theta)), ss_n3);
+
+            *seed = *seed * 1664525 + 1013904223;
+            float myrnd = ((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF);
+
+            float rr = weight * ((ss_rnd * myrnd + (1.0f - ss_rnd) * r) - ss_holes) * pow(t1 + t2, -1.0f / ss_n1) / r;
+
+            *outX = rr * tx;
+            *outY = rr * ty;
+        }
+
+        void variation_flower(float tx, float ty, float weight, float flower_petals, float flower_holes, uint* seed, float* outX, float* outY) {
+            float r = sqrt(tx * tx + ty * ty);
+            float theta = atan2(ty, tx);
+
+            *seed = *seed * 1664525 + 1013904223;
+            float rand_val = ((float)(*seed & 0xFFFFFF) / (float)0xFFFFFF);
+
+            float rr = weight * (rand_val - flower_holes) * cos(flower_petals * theta) / r;
+
+            *outX = rr * tx;
+            *outY = rr * ty;
+        }
+
         // Apply variation based on type
         void apply_variation(int variationType, float tx, float ty, float weight, float* outX, float* outY, uint* seed) {
             switch(variationType) {
@@ -658,6 +808,19 @@ object FractalKernels {
                 case 36: variation_radial_blur(tx, ty, weight, 0.5f, seed, outX, outY); break;  // Default parameter
                 case 37: variation_pie(tx, ty, weight, 6.0f, 0.0f, 0.5f, seed, outX, outY); break;  // Default parameters
                 case 38: variation_ngon(tx, ty, weight, 2.0f, 5.0f, 1.0f, 1.0f, outX, outY); break;  // Default parameters
+                case 39: variation_curl(tx, ty, weight, 1.0f, 0.1f, outX, outY); break;  // Default parameters
+                case 40: variation_rectangles(tx, ty, weight, 1.0f, 1.0f, outX, outY); break;  // Default parameters
+                case 41: variation_arch(tx, ty, weight, seed, outX, outY); break;
+                case 42: variation_tangent(tx, ty, weight, outX, outY); break;
+                case 43: variation_square(tx, ty, weight, seed, outX, outY); break;
+                case 44: variation_rays(tx, ty, weight, seed, outX, outY); break;
+                case 45: variation_blade(tx, ty, weight, seed, outX, outY); break;
+                case 46: variation_secant2(tx, ty, weight, outX, outY); break;
+                case 47: variation_twintrian(tx, ty, weight, seed, outX, outY); break;
+                case 48: variation_cross(tx, ty, weight, outX, outY); break;
+                case 49: variation_disc2(tx, ty, weight, 1.0f, 1.0f, outX, outY); break;  // Default parameters
+                case 50: variation_super_shape(tx, ty, weight, 4.0f, 1.0f, 1.0f, 1.0f, 0.5f, 0.0f, seed, outX, outY); break;  // Default parameters
+                case 51: variation_flower(tx, ty, weight, 4.0f, 0.3f, seed, outX, outY); break;  // Default parameters
                 default: variation_linear(tx, ty, weight, outX, outY); break;
             }
         }
