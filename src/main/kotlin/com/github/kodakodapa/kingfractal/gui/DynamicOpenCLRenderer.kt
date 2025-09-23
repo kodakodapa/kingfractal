@@ -342,7 +342,7 @@ class DynamicOpenCLRenderer(
     private fun renderFractalFlame(width: Int, height: Int, params: FractalFlameParams): ImageData {
         val pixelCount = width * height
         val outputSize = pixelCount * Sizeof.cl_uint.toLong() // Use uint32 for hit counts
-        val workGroupSize = 256L // Number of work items
+        val workGroupSize = 2048L // Number of work items
         val randomStatesSize = workGroupSize * Sizeof.cl_uint.toLong()
 
         println("FractalFlame: ${params.iterations} iterations across $workGroupSize workers = ${params.iterations / workGroupSize.toInt()} iterations per worker")
@@ -393,6 +393,12 @@ class DynamicOpenCLRenderer(
             // Weights
             CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.weight1)))
             CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.weight2)))
+            // Variation types
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_int.toLong(), Pointer.to(intArrayOf(params.variation1)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_int.toLong(), Pointer.to(intArrayOf(params.variation2)))
+            // Variation weights
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.varWeight1)))
+            CL.clSetKernelArg(kernel, argIndex++, Sizeof.cl_float.toLong(), Pointer.to(floatArrayOf(params.varWeight2)))
             CL.clSetKernelArg(kernel, argIndex, Sizeof.cl_mem.toLong(), Pointer.to(randomStatesMem))
 
             // Execute kernel - 1D work group for Fractal Flame

@@ -194,6 +194,104 @@ object FractalKernels {
     """.trimIndent()
 
     val fractalFlameKernel = """
+        // Variation function implementations
+        void variation_linear(float tx, float ty, float weight, float* outX, float* outY) {
+            *outX = weight * tx;
+            *outY = weight * ty;
+        }
+
+        void variation_sinusoidal(float tx, float ty, float weight, float* outX, float* outY) {
+            *outX = weight * sin(tx);
+            *outY = weight * sin(ty);
+        }
+
+        void variation_spherical(float tx, float ty, float weight, float* outX, float* outY) {
+            float r2 = tx * tx + ty * ty;
+            float r = weight / (r2 + 1e-6f);
+            *outX = r * tx;
+            *outY = r * ty;
+        }
+
+        void variation_swirl(float tx, float ty, float weight, float* outX, float* outY) {
+            float r2 = tx * tx + ty * ty;
+            float c1 = sin(r2);
+            float c2 = cos(r2);
+            *outX = weight * (c1 * tx - c2 * ty);
+            *outY = weight * (c2 * tx + c1 * ty);
+        }
+
+        void variation_horseshoe(float tx, float ty, float weight, float* outX, float* outY) {
+            float r = sqrt(tx * tx + ty * ty) + 1e-6f;
+            *outX = weight * (tx - ty) * (tx + ty) / r;
+            *outY = weight * 2.0f * tx * ty / r;
+        }
+
+        void variation_polar(float tx, float ty, float weight, float* outX, float* outY) {
+            *outX = weight * atan2(ty, tx) / M_PI;
+            *outY = weight * (sqrt(tx * tx + ty * ty) - 1.0f);
+        }
+
+        void variation_handkerchief(float tx, float ty, float weight, float* outX, float* outY) {
+            float r = sqrt(tx * tx + ty * ty);
+            float theta = atan2(ty, tx);
+            *outX = weight * r * sin(theta + r);
+            *outY = weight * r * cos(theta - r);
+        }
+
+        void variation_heart(float tx, float ty, float weight, float* outX, float* outY) {
+            float r = sqrt(tx * tx + ty * ty);
+            float theta = atan2(ty, tx);
+            *outX = weight * r * sin(theta * r);
+            *outY = weight * (-r) * cos(theta * r);
+        }
+
+        void variation_disc(float tx, float ty, float weight, float* outX, float* outY) {
+            float r = sqrt(tx * tx + ty * ty);
+            float theta = atan2(ty, tx);
+            *outX = weight * theta / M_PI * sin(M_PI * r);
+            *outY = weight * theta / M_PI * cos(M_PI * r);
+        }
+
+        void variation_spiral(float tx, float ty, float weight, float* outX, float* outY) {
+            float r = sqrt(tx * tx + ty * ty) + 1e-6f;
+            float theta = atan2(ty, tx);
+            *outX = weight * (cos(theta) + sin(r)) / r;
+            *outY = weight * (sin(theta) - cos(r)) / r;
+        }
+
+        void variation_hyperbolic(float tx, float ty, float weight, float* outX, float* outY) {
+            float r = sqrt(tx * tx + ty * ty) + 1e-6f;
+            float theta = atan2(ty, tx);
+            *outX = weight * sin(theta) / r;
+            *outY = weight * cos(theta) * r;
+        }
+
+        void variation_diamond(float tx, float ty, float weight, float* outX, float* outY) {
+            float r = sqrt(tx * tx + ty * ty);
+            float theta = atan2(ty, tx);
+            *outX = weight * sin(theta) * cos(r);
+            *outY = weight * cos(theta) * sin(r);
+        }
+
+        // Apply variation based on type
+        void apply_variation(int variationType, float tx, float ty, float weight, float* outX, float* outY) {
+            switch(variationType) {
+                case 0: variation_linear(tx, ty, weight, outX, outY); break;
+                case 1: variation_sinusoidal(tx, ty, weight, outX, outY); break;
+                case 2: variation_spherical(tx, ty, weight, outX, outY); break;
+                case 3: variation_swirl(tx, ty, weight, outX, outY); break;
+                case 4: variation_horseshoe(tx, ty, weight, outX, outY); break;
+                case 5: variation_polar(tx, ty, weight, outX, outY); break;
+                case 6: variation_handkerchief(tx, ty, weight, outX, outY); break;
+                case 7: variation_heart(tx, ty, weight, outX, outY); break;
+                case 8: variation_disc(tx, ty, weight, outX, outY); break;
+                case 9: variation_spiral(tx, ty, weight, outX, outY); break;
+                case 10: variation_hyperbolic(tx, ty, weight, outX, outY); break;
+                case 11: variation_diamond(tx, ty, weight, outX, outY); break;
+                default: variation_linear(tx, ty, weight, outX, outY); break;
+            }
+        }
+
         __kernel void fractal_flame(
             __global uint* histogram,
             const int width,
@@ -214,6 +312,10 @@ object FractalKernels {
             const float d2, const float e2, const float f2,
             // Transform weights
             const float weight1, const float weight2,
+            // Variation types
+            const int variation1, const int variation2,
+            // Variation weights
+            const float varWeight1, const float varWeight2,
             __global uint* randomStates
         ) {
             int gid = get_global_id(0);
@@ -237,22 +339,23 @@ object FractalKernels {
                     seed = seed * 1664525 + 1013904223;
                     float randVal = (float)(seed & 0xFFFFFF) / (float)0xFFFFFF;
 
-                    float newX, newY;
+                    float newX, newY, varX, varY;
                     if (randVal < weight1) {
-                        // Apply first transform with linear variation
+                        // Apply first affine transform
                         newX = a1 * x + b1 * y + c1;
                         newY = d1 * x + e1 * y + f1;
+                        // Apply first variation
+                        apply_variation(variation1, newX, newY, varWeight1, &varX, &varY);
                     } else {
-                        // Apply second transform with sinusoidal variation
+                        // Apply second affine transform
                         newX = a2 * x + b2 * y + c2;
                         newY = d2 * x + e2 * y + f2;
-                        // Apply sinusoidal variation
-                        newX = sin(newX);
-                        newY = sin(newY);
+                        // Apply second variation
+                        apply_variation(variation2, newX, newY, varWeight2, &varX, &varY);
                     }
 
-                    x = newX;
-                    y = newY;
+                    x = varX;
+                    y = varY;
                 }
 
                 // Now iterate and plot points
@@ -261,22 +364,23 @@ object FractalKernels {
                     seed = seed * 1664525 + 1013904223;
                     float randVal = (float)(seed & 0xFFFFFF) / (float)0xFFFFFF;
 
-                    float newX, newY;
+                    float newX, newY, varX, varY;
                     if (randVal < weight1) {
-                        // Apply first transform with linear variation
+                        // Apply first affine transform
                         newX = a1 * x + b1 * y + c1;
                         newY = d1 * x + e1 * y + f1;
+                        // Apply first variation
+                        apply_variation(variation1, newX, newY, varWeight1, &varX, &varY);
                     } else {
-                        // Apply second transform with sinusoidal variation
+                        // Apply second affine transform
                         newX = a2 * x + b2 * y + c2;
                         newY = d2 * x + e2 * y + f2;
-                        // Apply sinusoidal variation
-                        newX = sin(newX);
-                        newY = sin(newY);
+                        // Apply second variation
+                        apply_variation(variation2, newX, newY, varWeight2, &varX, &varY);
                     }
 
-                    x = newX;
-                    y = newY;
+                    x = varX;
+                    y = varY;
 
                     // Transform to screen coordinates
                     float screenX = ((x - centerX) * zoom + 1.0f) * width * 0.5f;
