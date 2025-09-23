@@ -273,8 +273,186 @@ object FractalKernels {
             *outY = weight * cos(theta) * sin(r);
         }
 
+        void variation_ex(float tx, float ty, float weight, float* outX, float* outY) {
+            float r = sqrt(tx * tx + ty * ty);
+            float theta = atan2(ty, tx);
+
+            float n0 = sin(theta + r);
+            float n1 = cos(theta - r);
+
+            float m0 = n0 * n0 * n0 * r;
+            float m1 = n1 * n1 * n1 * r;
+
+            *outX = weight * (m0 + m1);
+            *outY = weight * (m0 - m1);
+        }
+
+        void variation_julia(float tx, float ty, float weight, float* outX, float* outY, uint* seed) {
+            float theta = 0.5f * atan2(ty, tx);
+            float r = sqrt(tx * tx + ty * ty);
+
+            // Random bit using seed
+            *seed = *seed * 1664525 + 1013904223;
+            if (*seed & 1) {
+                theta += M_PI;
+            }
+
+            r = weight * sqrt(r);
+
+            *outX = r * cos(theta);
+            *outY = r * sin(theta);
+        }
+
+        void variation_bent(float tx, float ty, float weight, float* outX, float* outY) {
+            float nx = tx;
+            float ny = ty;
+
+            if (nx < 0.0f) nx = nx * 2.0f;
+            if (ny < 0.0f) ny = ny / 2.0f;
+
+            *outX = weight * nx;
+            *outY = weight * ny;
+        }
+
+        void variation_waves(float tx, float ty, float weight, float c10, float c11, float dx2, float dy2, float* outX, float* outY) {
+            float nx = tx + c10 * sin(ty * dx2);
+            float ny = ty + c11 * sin(tx * dy2);
+
+            *outX = weight * nx;
+            *outY = weight * ny;
+        }
+
+        void variation_fisheye(float tx, float ty, float weight, float* outX, float* outY) {
+            float r = sqrt(tx * tx + ty * ty);
+            r = 2.0f * weight / (r + 1.0f);
+
+            *outX = r * ty;
+            *outY = r * tx;
+        }
+
+        void variation_popcorn(float tx, float ty, float weight, float c20, float c21, float* outX, float* outY) {
+            float dx = tan(3.0f * ty);
+            float dy = tan(3.0f * tx);
+
+            float nx = tx + c20 * sin(dx);
+            float ny = ty + c21 * sin(dy);
+
+            *outX = weight * nx;
+            *outY = weight * ny;
+        }
+
+        void variation_exponential(float tx, float ty, float weight, float* outX, float* outY) {
+            float dx = weight * exp(tx - 1.0f);
+            float dy = M_PI * ty;
+
+            *outX = dx * cos(dy);
+            *outY = dx * sin(dy);
+        }
+
+        void variation_power(float tx, float ty, float weight, float* outX, float* outY) {
+            float r = sqrt(tx * tx + ty * ty);
+            float theta = atan2(ty, tx);
+            float sina = sin(theta);
+            float cosa = cos(theta);
+
+            r = weight * pow(r, sina);
+
+            *outX = r * cosa;
+            *outY = r * sina;
+        }
+
+        void variation_cosine(float tx, float ty, float weight, float* outX, float* outY) {
+            float a = tx * M_PI;
+
+            float nx = cos(a) * cosh(ty);
+            float ny = -sin(a) * sinh(ty);
+
+            *outX = weight * nx;
+            *outY = weight * ny;
+        }
+
+        void variation_rings(float tx, float ty, float weight, float c20, float* outX, float* outY) {
+            float dx = c20 * c20 + 1e-6f;
+            float r = sqrt(tx * tx + ty * ty);
+            float theta = atan2(ty, tx);
+
+            r = weight * (fmod(r + dx, 2.0f * dx) - dx + r * (1.0f - dx));
+
+            *outX = r * cos(theta);
+            *outY = r * sin(theta);
+        }
+
+        void variation_fan(float tx, float ty, float weight, float c20, float c21, float* outX, float* outY) {
+            float dx = M_PI * (c20 * c20 + 1e-6f);
+            float dy = c21;
+            float dx2 = 0.5f * dx;
+
+            float theta = atan2(ty, tx);
+            float r = weight * sqrt(tx * tx + ty * ty);
+
+            theta += (fmod(theta + dy, dx) > dx2) ? -dx2 : dx2;
+
+            *outX = r * cos(theta);
+            *outY = r * sin(theta);
+        }
+
+        void variation_blob(float tx, float ty, float weight, float blob_low, float blob_high, float blob_waves, float* outX, float* outY) {
+            float r = sqrt(tx * tx + ty * ty);
+            float theta = atan2(ty, tx);
+            float sina = sin(theta);
+            float cosa = cos(theta);
+
+            float bdiff = blob_high - blob_low;
+            r = r * (blob_low + bdiff * (0.5f + 0.5f * sin(blob_waves * theta)));
+
+            *outX = weight * sina * r;
+            *outY = weight * cosa * r;
+        }
+
+        void variation_pdj(float tx, float ty, float weight, float pdj_a, float pdj_b, float pdj_c, float pdj_d, float* outX, float* outY) {
+            float nx1 = cos(pdj_b * tx);
+            float nx2 = sin(pdj_c * tx);
+            float ny1 = sin(pdj_a * ty);
+            float ny2 = cos(pdj_d * ty);
+
+            *outX = weight * (ny1 - nx1);
+            *outY = weight * (nx2 - ny2);
+        }
+
+        void variation_fan2(float tx, float ty, float weight, float fan2_x, float fan2_y, float* outX, float* outY) {
+            float dy = fan2_y;
+            float dx = M_PI * (fan2_x * fan2_x + 1e-6f);
+            float dx2 = 0.5f * dx;
+            float theta = atan2(ty, tx);
+            float r = weight * sqrt(tx * tx + ty * ty);
+
+            float t = theta + dy - dx * (int)((theta + dy) / dx);
+
+            if (t > dx2) {
+                theta = theta - dx2;
+            } else {
+                theta = theta + dx2;
+            }
+
+            *outX = r * sin(theta);
+            *outY = r * cos(theta);
+        }
+
+        void variation_rings2(float tx, float ty, float weight, float rings2_val, float* outX, float* outY) {
+            float r = sqrt(tx * tx + ty * ty);
+            float theta = atan2(ty, tx);
+            float sina = sin(theta);
+            float cosa = cos(theta);
+
+            float dx = rings2_val * rings2_val + 1e-6f;
+            r += -2.0f * dx * (int)((r + dx) / (2.0f * dx)) + r * (1.0f - dx);
+
+            *outX = weight * sina * r;
+            *outY = weight * cosa * r;
+        }
+
         // Apply variation based on type
-        void apply_variation(int variationType, float tx, float ty, float weight, float* outX, float* outY) {
+        void apply_variation(int variationType, float tx, float ty, float weight, float* outX, float* outY, uint* seed) {
             switch(variationType) {
                 case 0: variation_linear(tx, ty, weight, outX, outY); break;
                 case 1: variation_sinusoidal(tx, ty, weight, outX, outY); break;
@@ -288,6 +466,21 @@ object FractalKernels {
                 case 9: variation_spiral(tx, ty, weight, outX, outY); break;
                 case 10: variation_hyperbolic(tx, ty, weight, outX, outY); break;
                 case 11: variation_diamond(tx, ty, weight, outX, outY); break;
+                case 12: variation_ex(tx, ty, weight, outX, outY); break;
+                case 13: variation_julia(tx, ty, weight, outX, outY, seed); break;
+                case 14: variation_bent(tx, ty, weight, outX, outY); break;
+                case 15: variation_waves(tx, ty, weight, 0.1f, 0.1f, 1.0f, 1.0f, outX, outY); break;  // Default parameters
+                case 16: variation_fisheye(tx, ty, weight, outX, outY); break;
+                case 17: variation_popcorn(tx, ty, weight, 0.1f, 0.1f, outX, outY); break;  // Default parameters
+                case 18: variation_exponential(tx, ty, weight, outX, outY); break;
+                case 19: variation_power(tx, ty, weight, outX, outY); break;
+                case 20: variation_cosine(tx, ty, weight, outX, outY); break;
+                case 21: variation_rings(tx, ty, weight, 0.2f, outX, outY); break;  // Default parameter
+                case 22: variation_fan(tx, ty, weight, 0.5f, 0.3f, outX, outY); break;  // Default parameters
+                case 23: variation_blob(tx, ty, weight, 0.2f, 1.0f, 2.0f, outX, outY); break;  // Default parameters
+                case 24: variation_pdj(tx, ty, weight, 1.0f, 1.0f, 1.0f, 1.0f, outX, outY); break;  // Default parameters
+                case 25: variation_fan2(tx, ty, weight, 0.5f, 0.3f, outX, outY); break;  // Default parameters
+                case 26: variation_rings2(tx, ty, weight, 0.5f, outX, outY); break;  // Default parameter
                 default: variation_linear(tx, ty, weight, outX, outY); break;
             }
         }
@@ -345,13 +538,13 @@ object FractalKernels {
                         newX = a1 * x + b1 * y + c1;
                         newY = d1 * x + e1 * y + f1;
                         // Apply first variation
-                        apply_variation(variation1, newX, newY, varWeight1, &varX, &varY);
+                        apply_variation(variation1, newX, newY, varWeight1, &varX, &varY, &seed);
                     } else {
                         // Apply second affine transform
                         newX = a2 * x + b2 * y + c2;
                         newY = d2 * x + e2 * y + f2;
                         // Apply second variation
-                        apply_variation(variation2, newX, newY, varWeight2, &varX, &varY);
+                        apply_variation(variation2, newX, newY, varWeight2, &varX, &varY, &seed);
                     }
 
                     x = varX;
@@ -370,13 +563,13 @@ object FractalKernels {
                         newX = a1 * x + b1 * y + c1;
                         newY = d1 * x + e1 * y + f1;
                         // Apply first variation
-                        apply_variation(variation1, newX, newY, varWeight1, &varX, &varY);
+                        apply_variation(variation1, newX, newY, varWeight1, &varX, &varY, &seed);
                     } else {
                         // Apply second affine transform
                         newX = a2 * x + b2 * y + c2;
                         newY = d2 * x + e2 * y + f2;
                         // Apply second variation
-                        apply_variation(variation2, newX, newY, varWeight2, &varX, &varY);
+                        apply_variation(variation2, newX, newY, varWeight2, &varX, &varY, &seed);
                     }
 
                     x = varX;
