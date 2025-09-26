@@ -228,7 +228,7 @@ class DynamicOpenCLRenderer(
             CL.clFinish(commandQueue)
 
             // Create ImageData with the correct dimensions
-            return ImageData.Companion.fromByteArray(width, height, outputArray)
+            return ImageData.fromByteArray(width, height, outputArray)
 
         } finally {
             // Clean up memory objects
