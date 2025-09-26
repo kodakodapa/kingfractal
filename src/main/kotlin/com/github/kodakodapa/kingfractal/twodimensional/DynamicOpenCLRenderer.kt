@@ -293,7 +293,7 @@ class DynamicOpenCLRenderer(
             val byteArray = convertBuddhabrotToByteArray(outputArray, width, height)
 
             // Create ImageData with the correct dimensions
-            return ImageData.Companion.fromByteArray(width, height, byteArray)
+            return ImageData.fromByteArray(width, height, byteArray)
 
         } finally {
             // Clean up memory objects
