@@ -1,9 +1,10 @@
-package com.github.kodakodapa.kingfractal.ifs
+package com.github.kodakodapa.kingfractal.twodimensional.ifs
 
 import com.github.kodakodapa.kingfractal.outputs.ImageData
 import com.github.kodakodapa.kingfractal.outputs.ARGB_CHANNELS
 import com.github.kodakodapa.kingfractal.utils.IFSParams
 import com.github.kodakodapa.kingfractal.utils.SierpinskiTriangleParams
+import kotlin.math.ln
 import kotlin.random.Random
 
 /**
@@ -71,8 +72,8 @@ class IFSRenderer {
 
             // Use logarithmic scaling for better visualization
             val value = if (hits > 0) {
-                val logHits = kotlin.math.ln(1.0 + hits.toDouble())
-                val logMax = kotlin.math.ln(1.0 + maxHits.toDouble())
+                val logHits = ln(1.0 + hits.toDouble())
+                val logMax = ln(1.0 + maxHits.toDouble())
                 ((logHits / logMax) * 255.0).toInt().coerceIn(1, 255)
             } else {
                 0

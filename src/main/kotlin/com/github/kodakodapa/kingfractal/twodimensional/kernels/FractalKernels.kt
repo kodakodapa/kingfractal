@@ -1,5 +1,4 @@
-package com.github.kodakodapa.kingfractal.utils
-
+package com.github.kodakodapa.kingfractal.twodimensional.kernels
 
 // Kernel sources
 object FractalKernels {

@@ -2,11 +2,12 @@ package com.github.kodakodapa.kingfractal.gui
 
 import com.github.kodakodapa.kingfractal.colors.ARGBPalette
 import com.github.kodakodapa.kingfractal.colors.ARGBPaletteRegistry
-import com.github.kodakodapa.kingfractal.ifs.IFSRenderer
+import com.github.kodakodapa.kingfractal.twodimensional.DynamicOpenCLRenderer
+import com.github.kodakodapa.kingfractal.twodimensional.ifs.IFSRenderer
 import com.github.kodakodapa.kingfractal.utils.SierpinskiTriangleParams
 import com.github.kodakodapa.kingfractal.utils.FractalFlameParams
 import com.github.kodakodapa.kingfractal.utils.FlameVariationType
-import com.github.kodakodapa.kingfractal.utils.FractalKernels
+import com.github.kodakodapa.kingfractal.twodimensional.kernels.FractalKernels
 import java.awt.*
 import java.awt.image.BufferedImage
 import javax.swing.*

@@ -1,14 +1,23 @@
-package com.github.kodakodapa.kingfractal.gui
+package com.github.kodakodapa.kingfractal.twodimensional
 
+import com.github.kodakodapa.kingfractal.outputs.ARGB_CHANNELS
 import com.github.kodakodapa.kingfractal.outputs.ImageData
+import com.github.kodakodapa.kingfractal.utils.BuddhabrotParams
+import com.github.kodakodapa.kingfractal.utils.FractalFlameParams
 import com.github.kodakodapa.kingfractal.utils.FractalParams
 import com.github.kodakodapa.kingfractal.utils.JuliaParams
 import com.github.kodakodapa.kingfractal.utils.MandelbrotParams
-import com.github.kodakodapa.kingfractal.utils.BuddhabrotParams
-import com.github.kodakodapa.kingfractal.utils.FractalFlameParams
-import com.github.kodakodapa.kingfractal.outputs.ARGB_CHANNELS
 import com.github.kodakodapa.kingfractal.utils.SierpinskiTriangleParams
-import org.jocl.*
+import org.jocl.CL
+import org.jocl.Pointer
+import org.jocl.Sizeof
+import org.jocl.cl_command_queue
+import org.jocl.cl_context
+import org.jocl.cl_context_properties
+import org.jocl.cl_device_id
+import org.jocl.cl_kernel
+import org.jocl.cl_platform_id
+import org.jocl.cl_program
 import kotlin.math.pow
 
 /**

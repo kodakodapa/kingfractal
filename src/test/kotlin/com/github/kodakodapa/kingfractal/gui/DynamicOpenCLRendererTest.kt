@@ -1,7 +1,8 @@
 package com.github.kodakodapa.kingfractal.gui
 
 import com.github.kodakodapa.kingfractal.outputs.ARGB_CHANNELS
-import com.github.kodakodapa.kingfractal.utils.FractalKernels
+import com.github.kodakodapa.kingfractal.twodimensional.DynamicOpenCLRenderer
+import com.github.kodakodapa.kingfractal.twodimensional.kernels.FractalKernels
 import com.github.kodakodapa.kingfractal.utils.JuliaParams
 import com.github.kodakodapa.kingfractal.utils.MandelbrotParams
 import org.junit.jupiter.api.Test
