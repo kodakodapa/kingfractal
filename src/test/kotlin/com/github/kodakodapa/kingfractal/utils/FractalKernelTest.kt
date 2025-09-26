@@ -1,6 +1,6 @@
 package com.github.kodakodapa.kingfractal.utils
 
-import com.github.kodakodapa.kingfractal.utils.FractalKernels
+import com.github.kodakodapa.kingfractal.twodimensional.kernels.FractalKernels
 import kotlin.test.Test
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue

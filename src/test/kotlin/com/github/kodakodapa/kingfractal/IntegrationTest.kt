@@ -1,8 +1,8 @@
 package com.github.kodakodapa.kingfractal
 
 
-import com.github.kodakodapa.kingfractal.gui.DynamicOpenCLRenderer
-import com.github.kodakodapa.kingfractal.utils.FractalKernels
+import com.github.kodakodapa.kingfractal.twodimensional.DynamicOpenCLRenderer
+import com.github.kodakodapa.kingfractal.twodimensional.kernels.FractalKernels
 import com.github.kodakodapa.kingfractal.outputs.ImageData
 import com.github.kodakodapa.kingfractal.utils.JuliaParams
 import com.github.kodakodapa.kingfractal.utils.MandelbrotParams

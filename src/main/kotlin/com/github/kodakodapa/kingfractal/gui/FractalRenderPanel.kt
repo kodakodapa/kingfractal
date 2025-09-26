@@ -2,6 +2,8 @@ package com.github.kodakodapa.kingfractal.gui
 
 import com.github.kodakodapa.kingfractal.colors.ARGBPalette
 import com.github.kodakodapa.kingfractal.colors.ARGBPaletteRegistry
+import com.github.kodakodapa.kingfractal.twodimensional.DynamicOpenCLRenderer
+import com.github.kodakodapa.kingfractal.twodimensional.kernels.FractalKernels
 import com.github.kodakodapa.kingfractal.utils.*
 import java.awt.*
 import java.awt.image.BufferedImage
