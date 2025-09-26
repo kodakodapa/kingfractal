@@ -19,6 +19,7 @@ class KingFractalGUI : JFrame("KingFractal - Palette Viewer & Fractal Renderer")
     private val statusLabel = JLabel("Ready")
     private lateinit var fractalPanel: FractalRenderPanel
     private lateinit var ifsPanel: IFSRenderPanel
+    private lateinit var rayTracingPanel: RayTracingPanel
     private lateinit var interactiveFractalPanel: InteractiveFractalPanel
     private lateinit var tabbedPane: JTabbedPane
     private var currentFractalImage: BufferedImage? = null
@@ -49,6 +50,10 @@ class KingFractalGUI : JFrame("KingFractal - Palette Viewer & Fractal Renderer")
         // IFS fractal tab
         ifsPanel = IFSRenderPanel { image -> onFractalImageGenerated(image) }
         tabbedPane.addTab("IFS Fractals", ifsPanel)
+
+        // Ray tracing tab
+        rayTracingPanel = RayTracingPanel { image -> onFractalImageGenerated(image) }
+        tabbedPane.addTab("Ray Tracing", rayTracingPanel)
 
         // Palette viewer tab
         val paletteViewerPanel = createPaletteViewerPanel()
