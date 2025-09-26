@@ -426,7 +426,7 @@ class DynamicOpenCLRenderer(
             val byteArray = convertFlameToByteArray(outputArray, width, height, params)
 
             // Create ImageData with the correct dimensions
-            return ImageData.Companion.fromByteArray(width, height, byteArray)
+            return ImageData.fromByteArray(width, height, byteArray)
 
         } finally {
             // Clean up memory objects
