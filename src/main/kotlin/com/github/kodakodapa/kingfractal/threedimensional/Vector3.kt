@@ -21,7 +21,7 @@ data class Vector3(val x: Double, val y: Double, val z: Double) {
     fun normalize(): Vector3 {
         val len = length()
         if (len == 0.0) {
-            throw IllegalStateException("Cannot normalize a zero-length vector.")
+            throw IllegalStateException("Cannot normalize zero-length vector: division by zero would occur.")
         }
         return this / len
     }
