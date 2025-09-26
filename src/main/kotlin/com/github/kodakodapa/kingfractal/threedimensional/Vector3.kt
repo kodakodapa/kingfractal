@@ -18,7 +18,13 @@ data class Vector3(val x: Double, val y: Double, val z: Double) {
     )
 
     fun length() = sqrt(x * x + y * y + z * z)
-    fun normalize() = this / length()
+    fun normalize(): Vector3 {
+        val len = length()
+        if (len == 0.0) {
+            throw IllegalStateException("Cannot normalize a zero-length vector.")
+        }
+        return this / len
+    }
 
     companion object {
         val ZERO = Vector3(0.0, 0.0, 0.0)
