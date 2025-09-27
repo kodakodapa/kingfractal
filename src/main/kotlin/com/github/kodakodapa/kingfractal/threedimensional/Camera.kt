@@ -8,8 +8,8 @@ class Camera(
     val up: Vector3,
     val fov: Double,
     val aspectRatio: Double,
-    var moveSpeed: Double = 0.1,
-    var turnSpeed: Double = 0.05
+    var moveSpeed: Double = 0.02,
+    var turnSpeed: Double = 0.01
 ) {
     private var w = (position - target).normalize()
     private var u = up.cross(w).normalize()
@@ -67,40 +67,51 @@ class Camera(
 
     fun pitchUp() {
         val direction = (target - position)
-        val horizontalLength = sqrt(direction.x * direction.x + direction.z * direction.z)
+        val length = direction.length()
 
-        if (horizontalLength > 0.001) {
-            val currentPitch = atan2(direction.y, horizontalLength)
-            val maxPitch = PI / 2 - 0.01 // Prevent looking directly up
-            val newPitch = minOf(currentPitch + turnSpeed, maxPitch)
+        // Simple approach: adjust Y component while keeping horizontal direction
+        val horizontalDir = Vector3(direction.x, 0.0, direction.z).normalize()
+        val currentY = direction.y
+        val newY = currentY + turnSpeed * length
 
-            val newDirection = Vector3(
-                direction.x * cos(newPitch) / horizontalLength * horizontalLength,
-                horizontalLength * tan(newPitch),
-                direction.z * cos(newPitch) / horizontalLength * horizontalLength
-            )
-            target = position + newDirection.normalize() * direction.length()
-            updateVectors()
-        }
+        // Prevent looking too far up
+        val maxY = length * 0.95
+        val clampedY = minOf(newY, maxY)
+
+        target = position + horizontalDir * sqrt(length * length - clampedY * clampedY) + Vector3(0.0, clampedY, 0.0)
+        updateVectors()
     }
 
     fun pitchDown() {
         val direction = (target - position)
-        val horizontalLength = sqrt(direction.x * direction.x + direction.z * direction.z)
+        val length = direction.length()
 
-        if (horizontalLength > 0.001) {
-            val currentPitch = atan2(direction.y, horizontalLength)
-            val minPitch = -PI / 2 + 0.01 // Prevent looking directly down
-            val newPitch = maxOf(currentPitch - turnSpeed, minPitch)
+        // Simple approach: adjust Y component while keeping horizontal direction
+        val horizontalDir = Vector3(direction.x, 0.0, direction.z).normalize()
+        val currentY = direction.y
+        val newY = currentY - turnSpeed * length
 
-            val newDirection = Vector3(
-                direction.x * cos(newPitch) / horizontalLength * horizontalLength,
-                horizontalLength * tan(newPitch),
-                direction.z * cos(newPitch) / horizontalLength * horizontalLength
-            )
-            target = position + newDirection.normalize() * direction.length()
-            updateVectors()
-        }
+        // Prevent looking too far down
+        val minY = -length * 0.95
+        val clampedY = maxOf(newY, minY)
+
+        target = position + horizontalDir * sqrt(length * length - clampedY * clampedY) + Vector3(0.0, clampedY, 0.0)
+        updateVectors()
+    }
+
+    fun increaseSpeed() {
+        moveSpeed = minOf(moveSpeed * 1.5, 1.0)
+        turnSpeed = minOf(turnSpeed * 1.5, 0.5)
+    }
+
+    fun decreaseSpeed() {
+        moveSpeed = maxOf(moveSpeed / 1.5, 0.001)
+        turnSpeed = maxOf(turnSpeed / 1.5, 0.001)
+    }
+
+    fun resetSpeed() {
+        moveSpeed = 0.02
+        turnSpeed = 0.01
     }
 
     fun handleKeyPress(key: Char) {

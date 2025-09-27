@@ -22,6 +22,10 @@ class RayTracingPanel(private val onImageGenerated: (BufferedImage) -> Unit) : J
     private val targetZSpinner = JSpinner(SpinnerNumberModel(0.0, -10.0, 10.0, 0.1))
     private val fovSpinner = JSpinner(SpinnerNumberModel(45.0, 10.0, 120.0, 5.0))
 
+    // Camera speed controls
+    private val moveSpeedSpinner = JSpinner(SpinnerNumberModel(0.02, 0.001, 1.0, 0.01))
+    private val turnSpeedSpinner = JSpinner(SpinnerNumberModel(0.01, 0.001, 0.5, 0.01))
+
     // Rendering parameters
     private val widthSpinner = JSpinner(SpinnerNumberModel(800, 100, 2048, 100))
     private val heightSpinner = JSpinner(SpinnerNumberModel(600, 100, 2048, 100))
@@ -37,6 +41,12 @@ class RayTracingPanel(private val onImageGenerated: (BufferedImage) -> Unit) : J
     // Camera instance for WASD controls
     private var camera: Camera? = null
 
+    // Key state tracking for continuous movement
+    private val pressedKeys = mutableSetOf<Int>()
+    private var movementTimer: Timer? = null
+    private var autoRenderEnabled = false
+    private var autoRenderToggle = false
+
     enum class SceneType(val displayName: String) {
         SIMPLE_SPHERES("Simple Spheres"),
         MATERIAL_TEST("Material Test"),
@@ -47,6 +57,7 @@ class RayTracingPanel(private val onImageGenerated: (BufferedImage) -> Unit) : J
         setupUI()
         loadSceneTypes()
         setupKeyHandling()
+        setupSpeedListeners()
     }
 
     private fun setupUI() {
@@ -107,6 +118,15 @@ class RayTracingPanel(private val onImageGenerated: (BufferedImage) -> Unit) : J
         gbc2.gridx = 1
         cameraPanel.add(fovSpinner, gbc2)
 
+        gbc2.gridx = 0; gbc2.gridy = 3
+        cameraPanel.add(JLabel("Move Speed:"), gbc2)
+        gbc2.gridx = 1
+        cameraPanel.add(moveSpeedSpinner, gbc2)
+        gbc2.gridx = 2
+        cameraPanel.add(JLabel("Turn Speed:"), gbc2)
+        gbc2.gridx = 3
+        cameraPanel.add(turnSpeedSpinner, gbc2)
+
         controlsPanel.add(cameraPanel)
 
         // Rendering parameters panel
@@ -150,197 +170,208 @@ class RayTracingPanel(private val onImageGenerated: (BufferedImage) -> Unit) : J
 
         // Controls help panel
         val helpPanel = JPanel(FlowLayout(FlowLayout.LEFT))
-        helpPanel.add(JLabel("<html><small>Camera: WASD=move/turn, QE=look up/down. Ctrl+keys to auto-render. Render scene first!</small></html>"))
+        helpPanel.add(JLabel("<html><small><b>CLICK HERE FIRST</b>, then: WASD=move/turn, QE=look up/down, R=auto-render, +/-=speed, 0=reset speed</small></html>"))
         controlsPanel.add(helpPanel)
 
         add(controlsPanel, BorderLayout.CENTER)
     }
 
     private fun setupKeyHandling() {
+        // Make the panel focusable and request focus
         isFocusable = true
+        requestFocusInWindow()
 
-        // Use key bindings instead of key listener for better focus handling
-        val inputMap = getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
-        val actionMap = actionMap
+        // Add a simple key listener that should definitely work
+        addKeyListener(object : java.awt.event.KeyAdapter() {
+            override fun keyPressed(e: java.awt.event.KeyEvent) {
+                println("Key pressed: ${e.keyChar} (${e.keyCode})") // Debug output
 
-        // Define actions for camera movement
-        val moveForwardAction = object : AbstractAction() {
-            override fun actionPerformed(e: java.awt.event.ActionEvent?) {
-                camera?.let { cam ->
-                    cam.moveForward()
-                    updateSpinnersFromCamera(cam)
-                    statusLabel.text = "Camera moved forward"
+                val keyCode = e.keyCode
+
+                // Handle special keys immediately
+                when (keyCode) {
+                    java.awt.event.KeyEvent.VK_R -> {
+                        autoRenderToggle = !autoRenderToggle
+                        statusLabel.text = if (autoRenderToggle) "Auto-render: ON" else "Auto-render: OFF"
+                        return
+                    }
+                    java.awt.event.KeyEvent.VK_PLUS, java.awt.event.KeyEvent.VK_EQUALS -> {
+                        camera?.let { cam ->
+                            cam.increaseSpeed()
+                            updateSpeedSpinners(cam)
+                            statusLabel.text = "Speed increased: move=${String.format("%.3f", cam.moveSpeed)}, turn=${String.format("%.3f", cam.turnSpeed)}"
+                        }
+                        return
+                    }
+                    java.awt.event.KeyEvent.VK_MINUS -> {
+                        camera?.let { cam ->
+                            cam.decreaseSpeed()
+                            updateSpeedSpinners(cam)
+                            statusLabel.text = "Speed decreased: move=${String.format("%.3f", cam.moveSpeed)}, turn=${String.format("%.3f", cam.turnSpeed)}"
+                        }
+                        return
+                    }
+                    java.awt.event.KeyEvent.VK_0 -> {
+                        camera?.let { cam ->
+                            cam.resetSpeed()
+                            updateSpeedSpinners(cam)
+                            statusLabel.text = "Speed reset to default"
+                        }
+                        return
+                    }
+                }
+
+                // Add movement keys to pressed set
+                if (isMovementKey(keyCode) && !pressedKeys.contains(keyCode)) {
+                    pressedKeys.add(keyCode)
+                    statusLabel.text = "Key pressed: ${getKeyName(keyCode)}"
+
+                    // Start movement timer if not already running
+                    if (movementTimer == null) {
+                        startMovementTimer()
+                    }
+                    updateStatusForKeys()
                 }
             }
-        }
 
-        val moveBackwardAction = object : AbstractAction() {
-            override fun actionPerformed(e: java.awt.event.ActionEvent?) {
-                camera?.let { cam ->
-                    cam.moveBackward()
-                    updateSpinnersFromCamera(cam)
-                    statusLabel.text = "Camera moved backward"
+            override fun keyReleased(e: java.awt.event.KeyEvent) {
+                println("Key released: ${e.keyChar} (${e.keyCode})") // Debug output
+
+                val keyCode = e.keyCode
+                if (isMovementKey(keyCode)) {
+                    pressedKeys.remove(keyCode)
+
+                    // Stop timer if no movement keys are pressed
+                    if (pressedKeys.isEmpty()) {
+                        stopMovementTimer()
+                    }
+                    updateStatusForKeys()
                 }
             }
-        }
+        })
 
-        val turnLeftAction = object : AbstractAction() {
-            override fun actionPerformed(e: java.awt.event.ActionEvent?) {
-                camera?.let { cam ->
-                    cam.turnLeft()
-                    updateSpinnersFromCamera(cam)
-                    statusLabel.text = "Camera turned left"
-                }
+        // Add focus listeners to help with debugging
+        addFocusListener(object : java.awt.event.FocusListener {
+            override fun focusGained(e: java.awt.event.FocusEvent?) {
+                statusLabel.text = "Panel has focus - WASDQE controls active"
+                println("Panel gained focus") // Debug output
             }
-        }
 
-        val turnRightAction = object : AbstractAction() {
-            override fun actionPerformed(e: java.awt.event.ActionEvent?) {
-                camera?.let { cam ->
-                    cam.turnRight()
-                    updateSpinnersFromCamera(cam)
-                    statusLabel.text = "Camera turned right"
-                }
+            override fun focusLost(e: java.awt.event.FocusEvent?) {
+                statusLabel.text = "Panel lost focus - click to reactivate"
+                println("Panel lost focus") // Debug output
             }
-        }
+        })
 
-        val autoMoveForwardAction = object : AbstractAction() {
-            override fun actionPerformed(e: java.awt.event.ActionEvent?) {
-                camera?.let { cam ->
-                    cam.moveForward()
-                    updateSpinnersFromCamera(cam)
-                    autoRender()
-                }
-            }
-        }
-
-        val autoMoveBackwardAction = object : AbstractAction() {
-            override fun actionPerformed(e: java.awt.event.ActionEvent?) {
-                camera?.let { cam ->
-                    cam.moveBackward()
-                    updateSpinnersFromCamera(cam)
-                    autoRender()
-                }
-            }
-        }
-
-        val autoTurnLeftAction = object : AbstractAction() {
-            override fun actionPerformed(e: java.awt.event.ActionEvent?) {
-                camera?.let { cam ->
-                    cam.turnLeft()
-                    updateSpinnersFromCamera(cam)
-                    autoRender()
-                }
-            }
-        }
-
-        val autoTurnRightAction = object : AbstractAction() {
-            override fun actionPerformed(e: java.awt.event.ActionEvent?) {
-                camera?.let { cam ->
-                    cam.turnRight()
-                    updateSpinnersFromCamera(cam)
-                    autoRender()
-                }
-            }
-        }
-
-        val pitchUpAction = object : AbstractAction() {
-            override fun actionPerformed(e: java.awt.event.ActionEvent?) {
-                camera?.let { cam ->
-                    cam.pitchUp()
-                    updateSpinnersFromCamera(cam)
-                    statusLabel.text = "Camera pitched up"
-                }
-            }
-        }
-
-        val pitchDownAction = object : AbstractAction() {
-            override fun actionPerformed(e: java.awt.event.ActionEvent?) {
-                camera?.let { cam ->
-                    cam.pitchDown()
-                    updateSpinnersFromCamera(cam)
-                    statusLabel.text = "Camera pitched down"
-                }
-            }
-        }
-
-        val autoPitchUpAction = object : AbstractAction() {
-            override fun actionPerformed(e: java.awt.event.ActionEvent?) {
-                camera?.let { cam ->
-                    cam.pitchUp()
-                    updateSpinnersFromCamera(cam)
-                    autoRender()
-                }
-            }
-        }
-
-        val autoPitchDownAction = object : AbstractAction() {
-            override fun actionPerformed(e: java.awt.event.ActionEvent?) {
-                camera?.let { cam ->
-                    cam.pitchDown()
-                    updateSpinnersFromCamera(cam)
-                    autoRender()
-                }
-            }
-        }
-
-        // Bind keys to actions
-        inputMap.put(KeyStroke.getKeyStroke('W'), "moveForward")
-        inputMap.put(KeyStroke.getKeyStroke('w'), "moveForward")
-        actionMap.put("moveForward", moveForwardAction)
-
-        inputMap.put(KeyStroke.getKeyStroke('S'), "moveBackward")
-        inputMap.put(KeyStroke.getKeyStroke('s'), "moveBackward")
-        actionMap.put("moveBackward", moveBackwardAction)
-
-        inputMap.put(KeyStroke.getKeyStroke('A'), "turnLeft")
-        inputMap.put(KeyStroke.getKeyStroke('a'), "turnLeft")
-        actionMap.put("turnLeft", turnLeftAction)
-
-        inputMap.put(KeyStroke.getKeyStroke('D'), "turnRight")
-        inputMap.put(KeyStroke.getKeyStroke('d'), "turnRight")
-        actionMap.put("turnRight", turnRightAction)
-
-        inputMap.put(KeyStroke.getKeyStroke('Q'), "pitchUp")
-        inputMap.put(KeyStroke.getKeyStroke('q'), "pitchUp")
-        actionMap.put("pitchUp", pitchUpAction)
-
-        inputMap.put(KeyStroke.getKeyStroke('E'), "pitchDown")
-        inputMap.put(KeyStroke.getKeyStroke('e'), "pitchDown")
-        actionMap.put("pitchDown", pitchDownAction)
-
-        // Ctrl+WASDQE for auto-rendering
-        inputMap.put(KeyStroke.getKeyStroke("ctrl W"), "autoMoveForward")
-        inputMap.put(KeyStroke.getKeyStroke("ctrl w"), "autoMoveForward")
-        actionMap.put("autoMoveForward", autoMoveForwardAction)
-
-        inputMap.put(KeyStroke.getKeyStroke("ctrl S"), "autoMoveBackward")
-        inputMap.put(KeyStroke.getKeyStroke("ctrl s"), "autoMoveBackward")
-        actionMap.put("autoMoveBackward", autoMoveBackwardAction)
-
-        inputMap.put(KeyStroke.getKeyStroke("ctrl A"), "autoTurnLeft")
-        inputMap.put(KeyStroke.getKeyStroke("ctrl a"), "autoTurnLeft")
-        actionMap.put("autoTurnLeft", autoTurnLeftAction)
-
-        inputMap.put(KeyStroke.getKeyStroke("ctrl D"), "autoTurnRight")
-        inputMap.put(KeyStroke.getKeyStroke("ctrl d"), "autoTurnRight")
-        actionMap.put("autoTurnRight", autoTurnRightAction)
-
-        inputMap.put(KeyStroke.getKeyStroke("ctrl Q"), "autoPitchUp")
-        inputMap.put(KeyStroke.getKeyStroke("ctrl q"), "autoPitchUp")
-        actionMap.put("autoPitchUp", autoPitchUpAction)
-
-        inputMap.put(KeyStroke.getKeyStroke("ctrl E"), "autoPitchDown")
-        inputMap.put(KeyStroke.getKeyStroke("ctrl e"), "autoPitchDown")
-        actionMap.put("autoPitchDown", autoPitchDownAction)
-
-        // Add mouse listener to show focus status
+        // Add mouse listener for focus
         addMouseListener(object : java.awt.event.MouseAdapter() {
             override fun mouseClicked(e: java.awt.event.MouseEvent) {
                 requestFocusInWindow()
-                statusLabel.text = "Panel focused - WASD controls active"
+                println("Mouse clicked - requesting focus") // Debug output
             }
         })
+    }
+
+    private fun isMovementKey(keyCode: Int): Boolean {
+        return keyCode in setOf(
+            java.awt.event.KeyEvent.VK_W,
+            java.awt.event.KeyEvent.VK_S,
+            java.awt.event.KeyEvent.VK_A,
+            java.awt.event.KeyEvent.VK_D,
+            java.awt.event.KeyEvent.VK_Q,
+            java.awt.event.KeyEvent.VK_E
+        )
+    }
+
+    private fun getKeyName(keyCode: Int): String {
+        return when (keyCode) {
+            java.awt.event.KeyEvent.VK_W -> "W"
+            java.awt.event.KeyEvent.VK_S -> "S"
+            java.awt.event.KeyEvent.VK_A -> "A"
+            java.awt.event.KeyEvent.VK_D -> "D"
+            java.awt.event.KeyEvent.VK_Q -> "Q"
+            java.awt.event.KeyEvent.VK_E -> "E"
+            else -> "Unknown"
+        }
+    }
+
+    private fun startMovementTimer() {
+        movementTimer = Timer(16) { // ~60 FPS movement updates
+            processContinuousMovement()
+        }
+        movementTimer?.start()
+    }
+
+    private fun stopMovementTimer() {
+        movementTimer?.stop()
+        movementTimer = null
+    }
+
+    private fun processContinuousMovement() {
+        camera?.let { cam ->
+            var moved = false
+
+            // Process each pressed key
+            for (keyCode in pressedKeys) {
+                when (keyCode) {
+                    java.awt.event.KeyEvent.VK_W -> {
+                        cam.moveForward()
+                        moved = true
+                    }
+                    java.awt.event.KeyEvent.VK_S -> {
+                        cam.moveBackward()
+                        moved = true
+                    }
+                    java.awt.event.KeyEvent.VK_A -> {
+                        cam.turnLeft()
+                        moved = true
+                    }
+                    java.awt.event.KeyEvent.VK_D -> {
+                        cam.turnRight()
+                        moved = true
+                    }
+                    java.awt.event.KeyEvent.VK_Q -> {
+                        cam.pitchUp()
+                        moved = true
+                    }
+                    java.awt.event.KeyEvent.VK_E -> {
+                        cam.pitchDown()
+                        moved = true
+                    }
+                }
+            }
+
+            if (moved) {
+                SwingUtilities.invokeLater {
+                    updateSpinnersFromCamera(cam)
+                    if (autoRenderToggle) {
+                        autoRender()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun updateStatusForKeys() {
+        if (pressedKeys.isEmpty()) {
+            val autoStatus = if (autoRenderToggle) " - Auto-render: ON" else ""
+            statusLabel.text = "Ready$autoStatus"
+        } else {
+            val keyNames = pressedKeys.mapNotNull { keyCode ->
+                when (keyCode) {
+                    java.awt.event.KeyEvent.VK_W -> "W"
+                    java.awt.event.KeyEvent.VK_S -> "S"
+                    java.awt.event.KeyEvent.VK_A -> "A"
+                    java.awt.event.KeyEvent.VK_D -> "D"
+                    java.awt.event.KeyEvent.VK_Q -> "Q"
+                    java.awt.event.KeyEvent.VK_E -> "E"
+                    else -> null
+                }
+            }.joinToString("+")
+
+            val autoStatus = if (autoRenderToggle) " (auto-render)" else ""
+            statusLabel.text = "Moving: $keyNames$autoStatus"
+        }
     }
 
     private fun updateSpinnersFromCamera(cam: Camera) {
@@ -350,6 +381,11 @@ class RayTracingPanel(private val onImageGenerated: (BufferedImage) -> Unit) : J
         targetXSpinner.value = cam.target.x
         targetYSpinner.value = cam.target.y
         targetZSpinner.value = cam.target.z
+    }
+
+    private fun updateSpeedSpinners(cam: Camera) {
+        moveSpeedSpinner.value = cam.moveSpeed
+        turnSpeedSpinner.value = cam.turnSpeed
     }
 
     private fun autoRender() {
@@ -399,7 +435,9 @@ class RayTracingPanel(private val onImageGenerated: (BufferedImage) -> Unit) : J
                     ),
                     up = Vector3.UNIT_Y,
                     fov = fovSpinner.value as Double,
-                    aspectRatio = width.toDouble() / height.toDouble()
+                    aspectRatio = width.toDouble() / height.toDouble(),
+                    moveSpeed = moveSpeedSpinner.value as Double,
+                    turnSpeed = turnSpeedSpinner.value as Double
                 )
 
                 val world = createScene(sceneCombo.selectedItem as SceneType)
@@ -545,5 +583,23 @@ class RayTracingPanel(private val onImageGenerated: (BufferedImage) -> Unit) : J
         }
 
         return world
+    }
+
+    private fun setupSpeedListeners() {
+        moveSpeedSpinner.addChangeListener {
+            camera?.let { cam ->
+                cam.moveSpeed = moveSpeedSpinner.value as Double
+            }
+        }
+
+        turnSpeedSpinner.addChangeListener {
+            camera?.let { cam ->
+                cam.turnSpeed = turnSpeedSpinner.value as Double
+            }
+        }
+    }
+
+    fun cleanup() {
+        stopMovementTimer()
     }
 }
