@@ -65,12 +65,52 @@ class Camera(
         updateVectors()
     }
 
+    fun pitchUp() {
+        val direction = (target - position)
+        val horizontalLength = sqrt(direction.x * direction.x + direction.z * direction.z)
+
+        if (horizontalLength > 0.001) {
+            val currentPitch = atan2(direction.y, horizontalLength)
+            val maxPitch = PI / 2 - 0.01 // Prevent looking directly up
+            val newPitch = minOf(currentPitch + turnSpeed, maxPitch)
+
+            val newDirection = Vector3(
+                direction.x * cos(newPitch) / horizontalLength * horizontalLength,
+                horizontalLength * tan(newPitch),
+                direction.z * cos(newPitch) / horizontalLength * horizontalLength
+            )
+            target = position + newDirection.normalize() * direction.length()
+            updateVectors()
+        }
+    }
+
+    fun pitchDown() {
+        val direction = (target - position)
+        val horizontalLength = sqrt(direction.x * direction.x + direction.z * direction.z)
+
+        if (horizontalLength > 0.001) {
+            val currentPitch = atan2(direction.y, horizontalLength)
+            val minPitch = -PI / 2 + 0.01 // Prevent looking directly down
+            val newPitch = maxOf(currentPitch - turnSpeed, minPitch)
+
+            val newDirection = Vector3(
+                direction.x * cos(newPitch) / horizontalLength * horizontalLength,
+                horizontalLength * tan(newPitch),
+                direction.z * cos(newPitch) / horizontalLength * horizontalLength
+            )
+            target = position + newDirection.normalize() * direction.length()
+            updateVectors()
+        }
+    }
+
     fun handleKeyPress(key: Char) {
         when (key.lowercaseChar()) {
             'w' -> moveForward()
             's' -> moveBackward()
             'a' -> turnLeft()
             'd' -> turnRight()
+            'q' -> pitchUp()
+            'e' -> pitchDown()
         }
     }
 

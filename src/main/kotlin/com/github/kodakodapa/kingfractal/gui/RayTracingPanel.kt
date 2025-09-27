@@ -150,7 +150,7 @@ class RayTracingPanel(private val onImageGenerated: (BufferedImage) -> Unit) : J
 
         // Controls help panel
         val helpPanel = JPanel(FlowLayout(FlowLayout.LEFT))
-        helpPanel.add(JLabel("<html><small>Use WASD to move camera (W/S=forward/back, A/D=turn left/right). Ctrl+WASD to auto-render. Render scene first!</small></html>"))
+        helpPanel.add(JLabel("<html><small>Camera: WASD=move/turn, QE=look up/down. Ctrl+keys to auto-render. Render scene first!</small></html>"))
         controlsPanel.add(helpPanel)
 
         add(controlsPanel, BorderLayout.CENTER)
@@ -244,6 +244,46 @@ class RayTracingPanel(private val onImageGenerated: (BufferedImage) -> Unit) : J
             }
         }
 
+        val pitchUpAction = object : AbstractAction() {
+            override fun actionPerformed(e: java.awt.event.ActionEvent?) {
+                camera?.let { cam ->
+                    cam.pitchUp()
+                    updateSpinnersFromCamera(cam)
+                    statusLabel.text = "Camera pitched up"
+                }
+            }
+        }
+
+        val pitchDownAction = object : AbstractAction() {
+            override fun actionPerformed(e: java.awt.event.ActionEvent?) {
+                camera?.let { cam ->
+                    cam.pitchDown()
+                    updateSpinnersFromCamera(cam)
+                    statusLabel.text = "Camera pitched down"
+                }
+            }
+        }
+
+        val autoPitchUpAction = object : AbstractAction() {
+            override fun actionPerformed(e: java.awt.event.ActionEvent?) {
+                camera?.let { cam ->
+                    cam.pitchUp()
+                    updateSpinnersFromCamera(cam)
+                    autoRender()
+                }
+            }
+        }
+
+        val autoPitchDownAction = object : AbstractAction() {
+            override fun actionPerformed(e: java.awt.event.ActionEvent?) {
+                camera?.let { cam ->
+                    cam.pitchDown()
+                    updateSpinnersFromCamera(cam)
+                    autoRender()
+                }
+            }
+        }
+
         // Bind keys to actions
         inputMap.put(KeyStroke.getKeyStroke('W'), "moveForward")
         inputMap.put(KeyStroke.getKeyStroke('w'), "moveForward")
@@ -261,7 +301,15 @@ class RayTracingPanel(private val onImageGenerated: (BufferedImage) -> Unit) : J
         inputMap.put(KeyStroke.getKeyStroke('d'), "turnRight")
         actionMap.put("turnRight", turnRightAction)
 
-        // Ctrl+WASD for auto-rendering
+        inputMap.put(KeyStroke.getKeyStroke('Q'), "pitchUp")
+        inputMap.put(KeyStroke.getKeyStroke('q'), "pitchUp")
+        actionMap.put("pitchUp", pitchUpAction)
+
+        inputMap.put(KeyStroke.getKeyStroke('E'), "pitchDown")
+        inputMap.put(KeyStroke.getKeyStroke('e'), "pitchDown")
+        actionMap.put("pitchDown", pitchDownAction)
+
+        // Ctrl+WASDQE for auto-rendering
         inputMap.put(KeyStroke.getKeyStroke("ctrl W"), "autoMoveForward")
         inputMap.put(KeyStroke.getKeyStroke("ctrl w"), "autoMoveForward")
         actionMap.put("autoMoveForward", autoMoveForwardAction)
@@ -277,6 +325,14 @@ class RayTracingPanel(private val onImageGenerated: (BufferedImage) -> Unit) : J
         inputMap.put(KeyStroke.getKeyStroke("ctrl D"), "autoTurnRight")
         inputMap.put(KeyStroke.getKeyStroke("ctrl d"), "autoTurnRight")
         actionMap.put("autoTurnRight", autoTurnRightAction)
+
+        inputMap.put(KeyStroke.getKeyStroke("ctrl Q"), "autoPitchUp")
+        inputMap.put(KeyStroke.getKeyStroke("ctrl q"), "autoPitchUp")
+        actionMap.put("autoPitchUp", autoPitchUpAction)
+
+        inputMap.put(KeyStroke.getKeyStroke("ctrl E"), "autoPitchDown")
+        inputMap.put(KeyStroke.getKeyStroke("ctrl e"), "autoPitchDown")
+        actionMap.put("autoPitchDown", autoPitchDownAction)
 
         // Add mouse listener to show focus status
         addMouseListener(object : java.awt.event.MouseAdapter() {
