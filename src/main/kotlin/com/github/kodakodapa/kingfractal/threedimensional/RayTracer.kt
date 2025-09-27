@@ -4,14 +4,36 @@ import com.github.kodakodapa.kingfractal.colors.ARGBColor
 import kotlin.math.*
 import kotlin.random.Random
 
-// Extension function to add colors
-fun ARGBColor.add(other: ARGBColor): ARGBColor {
-    return ARGBColor(
-        (this.alpha + other.alpha).coerceIn(0, 255),
-        (this.red + other.red).coerceIn(0, 255),
-        (this.green + other.green).coerceIn(0, 255),
-        (this.blue + other.blue).coerceIn(0, 255)
-    )
+// Data class for floating-point color accumulation
+data class ColorAccumulator(
+    var r: Double = 0.0,
+    var g: Double = 0.0,
+    var b: Double = 0.0
+) {
+    fun add(color: ARGBColor) {
+        r += color.red.toDouble()
+        g += color.green.toDouble()
+        b += color.blue.toDouble()
+    }
+
+    fun toARGBColor(samples: Int): ARGBColor {
+        // Average the samples first
+        val avgR = r / samples
+        val avgG = g / samples
+        val avgB = b / samples
+
+        // Apply gamma correction (gamma = 2.0, so sqrt)
+        val correctedR = sqrt(avgR / 255.0)
+        val correctedG = sqrt(avgG / 255.0)
+        val correctedB = sqrt(avgB / 255.0)
+
+        return ARGBColor(
+            255,
+            (correctedR * 255).toInt().coerceIn(0, 255),
+            (correctedG * 255).toInt().coerceIn(0, 255),
+            (correctedB * 255).toInt().coerceIn(0, 255)
+        )
+    }
 }
 
 class RayTracer {
@@ -28,28 +50,18 @@ class RayTracer {
 
         for (j in 0 until imageHeight) {
             for (i in 0 until imageWidth) {
-                var pixelColor = ARGBColor.BLACK
+                val colorAccumulator = ColorAccumulator()
 
                 for (s in 0 until samplesPerPixel) {
                     val u = (i + Random.nextDouble()) / (imageWidth - 1)
                     val v = (imageHeight - 1 - j + Random.nextDouble()) / (imageHeight - 1)
                     val ray = camera.getRay(u, v)
                     val color = rayColor(ray, world, maxDepth)
-                    pixelColor = pixelColor.add(color)
+                    colorAccumulator.add(color)
                 }
 
-                // Average the samples and apply gamma correction
-                val scale = 1.0 / samplesPerPixel
-                val r = sqrt(pixelColor.red * scale / 255.0)
-                val g = sqrt(pixelColor.green * scale / 255.0)
-                val b = sqrt(pixelColor.blue * scale / 255.0)
-
-                image[j][i] = ARGBColor(
-                    255,
-                    (r * 255).toInt().coerceIn(0, 255),
-                    (g * 255).toInt().coerceIn(0, 255),
-                    (b * 255).toInt().coerceIn(0, 255)
-                )
+                // Convert accumulated color to final pixel color with proper averaging and gamma correction
+                image[j][i] = colorAccumulator.toARGBColor(samplesPerPixel)
             }
         }
 
