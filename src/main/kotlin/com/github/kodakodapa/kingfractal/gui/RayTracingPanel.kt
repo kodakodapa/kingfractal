@@ -36,7 +36,7 @@ class RayTracingPanel(private val onImageGenerated: (BufferedImage) -> Unit) : J
     private val renderButton = JButton("Render Scene")
     private val statusLabel = JLabel("Ready")
 
-    private val rayTracer = RayTracer()
+    private val rayTracer = GPURayTracer()
 
     // Camera instance for WASD controls
     private var camera: Camera? = null
@@ -58,6 +58,15 @@ class RayTracingPanel(private val onImageGenerated: (BufferedImage) -> Unit) : J
         loadSceneTypes()
         setupKeyHandling()
         setupSpeedListeners()
+
+        // Initialize GPU ray tracer
+        try {
+            rayTracer.initialize()
+            statusLabel.text = "GPU Ray Tracer ready"
+        } catch (e: Exception) {
+            statusLabel.text = "GPU initialization failed: ${e.message}"
+            e.printStackTrace()
+        }
     }
 
     private fun setupUI() {
@@ -601,5 +610,6 @@ class RayTracingPanel(private val onImageGenerated: (BufferedImage) -> Unit) : J
 
     fun cleanup() {
         stopMovementTimer()
+        rayTracer.cleanup()
     }
 }
