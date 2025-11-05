@@ -125,19 +125,48 @@ object FractalKernels {
         ) {
             int gid = get_global_id(0);
 
-            // Simple linear congruential generator for random numbers
+            // Xorshift RNG - much better quality than LCG
             uint seed = randomStates[gid] + gid * 1103515245 + 12345;
+            if (seed == 0) seed = 123456789;
 
             int samplesPerWorker = sampleCount / get_global_size(0);
             for (int sample = 0; sample < samplesPerWorker; sample++) {
-                // Generate random starting point with better distribution
-                seed = seed * 1664525 + 1013904223; // Better LCG constants
-                float rand1 = (float)(seed & 0xFFFFFF) / (float)0xFFFFFF;
-                seed = seed * 1664525 + 1013904223;
-                float rand2 = (float)(seed & 0xFFFFFF) / (float)0xFFFFFF;
+                // Xorshift random number generator
+                seed ^= seed << 13;
+                seed ^= seed >> 17;
+                seed ^= seed << 5;
+                float rand1 = (float)seed / (float)0xFFFFFFFF;
 
-                float cReal = (rand1 - 0.5f) * 3.0f; // Sample from [-1.5, 1.5]
-                float cImag = (rand2 - 0.5f) * 3.0f;
+                seed ^= seed << 13;
+                seed ^= seed >> 17;
+                seed ^= seed << 5;
+                float rand2 = (float)seed / (float)0xFFFFFFFF;
+
+                seed ^= seed << 13;
+                seed ^= seed >> 17;
+                seed ^= seed << 5;
+                float rand3 = (float)seed / (float)0xFFFFFFFF;
+
+                // Improved sampling strategy: mix of uniform and boundary-focused sampling
+                // Use 70% boundary-focused, 30% uniform for better coverage
+                float cReal, cImag;
+
+                if (rand3 < 0.7f) {
+                    // Boundary-focused sampling: sample from a region near the Mandelbrot set boundary
+                    // This region is roughly [-2.0, 0.5] x [-1.25, 1.25] with higher density near edges
+                    // Use a non-uniform distribution that favors boundary regions
+                    float rho = sqrt(rand1);  // Square root gives more samples near boundary
+                    float theta = rand2 * 2.0f * M_PI;
+
+                    // Place samples in a region around the set boundary
+                    cReal = -0.5f + rho * 1.5f * cos(theta);
+                    cImag = rho * 1.5f * sin(theta);
+                } else {
+                    // Uniform sampling from wider region to catch outliers
+                    // Extended region: [-2.5, 1.0] x [-1.5, 1.5] covers the full Mandelbrot set
+                    cReal = -2.5f + rand1 * 3.5f;  // Range: [-2.5, 1.0]
+                    cImag = -1.5f + rand2 * 3.0f;  // Range: [-1.5, 1.5]
+                }
 
                 // Check if this point escapes (anti-Buddhabrot)
                 float zReal = 0.0f;

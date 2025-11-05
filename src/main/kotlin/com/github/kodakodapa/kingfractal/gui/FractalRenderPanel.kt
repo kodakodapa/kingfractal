@@ -35,7 +35,7 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
     private val juliaParamsPanel = JPanel()
 
     // Buddhabrot-specific parameters
-    private val sampleCountSpinner = JSpinner(SpinnerNumberModel(1000000, 100000, 300000000, 100000))
+    private val sampleCountSpinner = JSpinner(SpinnerNumberModel(10000000, 100000, 1000000000, 1000000))
     private val buddhabrotParamsPanel = JPanel()
 
 
