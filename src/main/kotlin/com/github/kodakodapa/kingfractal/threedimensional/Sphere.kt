@@ -3,9 +3,9 @@ package com.github.kodakodapa.kingfractal.threedimensional
 import kotlin.math.*
 
 class Sphere(
-    private val center: Vector3,
-    private val radius: Double,
-    private val material: Material
+    val center: Vector3,
+    val radius: Double,
+    val material: Material
 ) : Hittable {
 
     override fun hit(ray: Ray, tMin: Double, tMax: Double): HitRecord? {

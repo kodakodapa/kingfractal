@@ -1,6 +1,6 @@
 package com.github.kodakodapa.kingfractal.threedimensional
 
-class HittableList(private val objects: MutableList<Hittable> = mutableListOf()) : Hittable {
+class HittableList(val objects: MutableList<Hittable> = mutableListOf()) : Hittable {
 
     fun add(obj: Hittable) = objects.add(obj)
 
