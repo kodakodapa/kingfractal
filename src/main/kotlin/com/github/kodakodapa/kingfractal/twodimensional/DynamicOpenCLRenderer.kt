@@ -239,7 +239,7 @@ class DynamicOpenCLRenderer(
     private fun renderBuddhabrot(width: Int, height: Int, params: BuddhabrotParams): ImageData {
         val pixelCount = width * height
         val outputSize = pixelCount * Sizeof.cl_uint.toLong() // Use uint32 for hit counts
-        val workGroupSize = 2048L // Reduce work items to ensure each gets enough samples
+        val workGroupSize = 16384L // Increased for better GPU utilization and parallelism
         val randomStatesSize = workGroupSize * Sizeof.cl_uint.toLong()
 
         println("Buddhabrot: ${params.sampleCount} samples across $workGroupSize workers = ${params.sampleCount / workGroupSize.toInt()} samples per worker")
