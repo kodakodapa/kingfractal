@@ -39,6 +39,14 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
     private val buddhabrotParamsPanel = JPanel()
 
 
+    // Grid/Fuse Bead options
+    private val enableGridCheckBox = JCheckBox("Enable Grid View", false)
+    private val gridSizeSpinner = JSpinner(SpinnerNumberModel(32, 8, 128, 4))
+    private val showGridLinesCheckBox = JCheckBox("Show Grid Lines", true)
+    private val beadStyleCombo = JComboBox<BeadStyle>()
+    private val quantizeColorsCheckBox = JCheckBox("Quantize Colors", true)
+    private val colorCountSpinner = JSpinner(SpinnerNumberModel(27, 8, 216, 1))
+
     // Rendering controls
     private val renderButton = JButton("Render Fractal")
     private val resetViewButton = JButton("Reset View")
@@ -87,6 +95,8 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
         buddhabrotParamsPanel.isVisible = false
         mainPanel.add(buddhabrotParamsPanel)
 
+        // Grid/Fuse Bead options
+        mainPanel.add(createGridOptionsPanel())
 
         // Render controls
         mainPanel.add(createRenderControlsPanel())
@@ -190,6 +200,62 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
         return panel
     }
 
+    private fun createGridOptionsPanel(): JPanel {
+        val panel = JPanel()
+        panel.layout = BoxLayout(panel, BoxLayout.Y_AXIS)
+        panel.border = TitledBorder("Grid/Fuse Bead Effect")
+
+        // Enable grid checkbox
+        val enablePanel = JPanel(FlowLayout(FlowLayout.LEFT))
+        enableGridCheckBox.toolTipText = "Apply grid effect to make fractal look like fuse beads"
+        enablePanel.add(enableGridCheckBox)
+        panel.add(enablePanel)
+
+        // Grid size and style
+        val gridPanel = JPanel(FlowLayout(FlowLayout.LEFT))
+        gridPanel.add(JLabel("Grid Size:"))
+        gridSizeSpinner.toolTipText = "Number of beads per side (e.g., 32 = 32x32 grid)"
+        gridPanel.add(gridSizeSpinner)
+
+        gridPanel.add(Box.createHorizontalStrut(10))
+
+        gridPanel.add(JLabel("Bead Style:"))
+        BeadStyle.values().forEach { beadStyleCombo.addItem(it) }
+        beadStyleCombo.selectedItem = BeadStyle.ROUNDED_SQUARE
+        gridPanel.add(beadStyleCombo)
+        panel.add(gridPanel)
+
+        // Grid options
+        val optionsPanel = JPanel(FlowLayout(FlowLayout.LEFT))
+        showGridLinesCheckBox.toolTipText = "Show lines between beads"
+        optionsPanel.add(showGridLinesCheckBox)
+
+        optionsPanel.add(Box.createHorizontalStrut(10))
+
+        quantizeColorsCheckBox.toolTipText = "Reduce colors to simulate real fuse bead palettes"
+        optionsPanel.add(quantizeColorsCheckBox)
+
+        optionsPanel.add(JLabel("Colors:"))
+        colorCountSpinner.toolTipText = "Number of distinct colors in palette"
+        optionsPanel.add(colorCountSpinner)
+        panel.add(optionsPanel)
+
+        // Update enabled states based on checkbox
+        updateGridControlsEnabled()
+        enableGridCheckBox.addActionListener { updateGridControlsEnabled() }
+
+        return panel
+    }
+
+    private fun updateGridControlsEnabled() {
+        val enabled = enableGridCheckBox.isSelected
+        gridSizeSpinner.isEnabled = enabled
+        showGridLinesCheckBox.isEnabled = enabled
+        beadStyleCombo.isEnabled = enabled
+        quantizeColorsCheckBox.isEnabled = enabled
+        colorCountSpinner.isEnabled = enabled && quantizeColorsCheckBox.isSelected
+    }
+
 
     private fun createRenderControlsPanel(): JPanel {
         val panel = JPanel()
@@ -238,6 +304,7 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
         fractalTypeCombo.addActionListener { onFractalTypeChanged() }
         renderButton.addActionListener { onRenderClicked() }
         resetViewButton.addActionListener { onResetViewClicked() }
+        quantizeColorsCheckBox.addActionListener { updateGridControlsEnabled() }
     }
 
     private fun onFractalTypeChanged() {
@@ -322,7 +389,8 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
         val maxIterations = maxIterationsSpinner.value as Int
         val useHistogramEqualization = histogramEqualizationCheckBox.isSelected
 
-        return when (fractalType) {
+        // Render the base fractal
+        val baseImage = when (fractalType) {
             FractalType.MANDELBROT -> {
                 val params = MandelbrotParams(zoom, centerX, centerY, maxIterations)
                 val result = mandelbrotRenderer!!.renderFractal(width, height, params)
@@ -341,6 +409,21 @@ class FractalRenderPanel(private val onImageGenerated: (BufferedImage) -> Unit) 
                 val result = buddhabrotRenderer!!.renderFractal(width, height, params)
                 result.toBufferedImage(palette, useHistogramEqualization)
             }
+        }
+
+        // Apply grid effect if enabled
+        return if (enableGridCheckBox.isSelected) {
+            val gridOptions = GridRenderOptions(
+                enabled = true,
+                gridSize = gridSizeSpinner.value as Int,
+                showGridLines = showGridLinesCheckBox.isSelected,
+                beadStyle = beadStyleCombo.selectedItem as BeadStyle,
+                quantizeColors = quantizeColorsCheckBox.isSelected,
+                colorCount = colorCountSpinner.value as Int
+            )
+            GridQuantizer.applyGridEffect(baseImage, gridOptions)
+        } else {
+            baseImage
         }
     }
 
